@@ -100,6 +100,36 @@ async function getDiagnostics(): Promise<DiagnosticItem[]> {
         value: data.session ? "Signed in" : "No active session",
       });
     }
+
+    const { getCurrentAuthContext } = await import(
+      "../../lib/auth/current-profile"
+    );
+    const { profile, user } = await getCurrentAuthContext();
+
+    diagnostics.push({
+      detail: profile
+        ? `${profile.display_name} is active at ${profile.school.name}.`
+        : user
+          ? "The Supabase user is signed in, but no matching active Cohort Studio profile was found."
+          : "No signed-in Supabase user is available for profile lookup.",
+      label: "Current profile",
+      status: profile ? "ok" : user ? "missing" : "signed-out",
+      value: profile ? "Active profile found" : "No active profile",
+    });
+
+    if (profile) {
+      diagnostics.push({
+        detail:
+          profile.globalRoles.length > 0
+            ? profile.globalRoles.join(", ")
+            : "No global roles are assigned to this profile.",
+        label: "Global roles",
+        status: "ok",
+        value: `${profile.globalRoles.length} role${
+          profile.globalRoles.length === 1 ? "" : "s"
+        }`,
+      });
+    }
   } catch (error) {
     diagnostics.push({
       detail: getErrorMessage(error),
