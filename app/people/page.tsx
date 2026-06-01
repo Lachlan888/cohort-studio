@@ -1,47 +1,50 @@
 import { AppShell } from "../../components/layout/app-shell";
 import { PageHeader } from "../../components/layout/page-header";
+import { PeopleSummaryCards } from "../../components/people/people-summary-cards";
+import { PeopleTable } from "../../components/people/people-table";
 import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
+import { getPeoplePageData } from "../../lib/people/get-people-page-data";
 
-const peopleAreas = [
-  {
-    description: "Prepare invite flows for teachers, moderators and viewers.",
-    name: "Staff invitations",
-  },
-  {
-    description: "Keep global system roles separate from subject access.",
-    name: "Global roles",
-  },
-  {
-    description: "Assign future subject, class and task-level responsibilities.",
-    name: "Subject access",
-  },
-];
+export const dynamic = "force-dynamic";
 
-export default function PeoplePage() {
+export default async function PeoplePage() {
+  const { currentProfile, people, summary } = await getPeoplePageData();
+
   return (
     <AppShell activeHref="/people">
       <PageHeader
-        description="Invite staff, manage profiles and assign access."
+        description={
+          currentProfile
+            ? `Read-only staff and global role visibility for ${currentProfile.school.name}.`
+            : "Sign-in alone is not enough to access school staff data."
+        }
         eyebrow="People and access"
+        rightContent={
+          currentProfile ? (
+            <Badge variant="primary">{currentProfile.school.name}</Badge>
+          ) : null
+        }
         title="People"
       />
 
-      <section className="grid gap-4 md:grid-cols-3">
-        {peopleAreas.map((area) => (
-          <Card as="article" key={area.name}>
-            <div className="flex items-start justify-between gap-4">
-              <h2 className="text-lg font-semibold text-slate-950">
-                {area.name}
-              </h2>
-              <Badge>Preview</Badge>
-            </div>
-            <p className="mt-4 text-sm leading-6 text-slate-600">
-              {area.description}
-            </p>
-          </Card>
-        ))}
-      </section>
+      {currentProfile ? (
+        <>
+          <PeopleSummaryCards summary={summary} />
+          <PeopleTable people={people} />
+        </>
+      ) : (
+        <Card as="section" className="border-amber-200 bg-amber-50">
+          <Badge variant="warning">No active profile</Badge>
+          <h2 className="mt-4 text-xl font-semibold text-slate-950">
+            This account is not provisioned for Cohort Studio.
+          </h2>
+          <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">
+            Ask a system administrator to link your Supabase auth account to an
+            active staff profile before viewing school people and roles.
+          </p>
+        </Card>
+      )}
     </AppShell>
   );
 }
