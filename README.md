@@ -103,6 +103,19 @@ These routes should be added incrementally, not all at once.
 - Avoid duplicate versions of the same table/card/form.
 - Prefer reusable domain components over one mega-component.
 
+## Current database foundation
+
+The implemented Phase 0 database foundation creates:
+
+- schools
+- profiles
+- user_global_roles
+- audit_events
+
+The app is designed with a school boundary from day one. Profiles are app-level staff records linked to Supabase Auth via nullable auth_user_id. Global roles are stored separately from profiles, and audit_events provides the generic audit trail foundation.
+
+Subject, class, student, task, marking, moderation, rubric, import/export and analytics tables are intentionally deferred.
+
 ## Data model direction
 
 Intended core entities:
