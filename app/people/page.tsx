@@ -1,22 +1,25 @@
 import { AppShell } from "../../components/layout/app-shell";
 import { PageHeader } from "../../components/layout/page-header";
+import { AddStaffProfileForm } from "../../components/people/add-staff-profile-form";
 import { PeopleSummaryCards } from "../../components/people/people-summary-cards";
 import { PeopleTable } from "../../components/people/people-table";
 import { Badge } from "../../components/ui/badge";
 import { Card } from "../../components/ui/card";
+import { canManagePeople } from "../../lib/auth/permissions";
 import { getPeoplePageData } from "../../lib/people/get-people-page-data";
 
 export const dynamic = "force-dynamic";
 
 export default async function PeoplePage() {
   const { currentProfile, people, summary } = await getPeoplePageData();
+  const canCreateStaffProfiles = canManagePeople(currentProfile);
 
   return (
     <AppShell activeHref="/people">
       <PageHeader
         description={
           currentProfile
-            ? `Read-only staff and global role visibility for ${currentProfile.school.name}.`
+            ? `Staff and global role visibility for ${currentProfile.school.name}.`
             : "Sign-in alone is not enough to access school staff data."
         }
         eyebrow="People and access"
@@ -30,6 +33,7 @@ export default async function PeoplePage() {
 
       {currentProfile ? (
         <>
+          {canCreateStaffProfiles ? <AddStaffProfileForm /> : null}
           <PeopleSummaryCards summary={summary} />
           <PeopleTable people={people} />
         </>
