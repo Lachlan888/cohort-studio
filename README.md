@@ -2,7 +2,17 @@
 
 Assessment moderation, rubrics and cohort analysis for schools.
 
-## Summary
+## Product positioning
+
+Cohort Studio is an assessment moderation, rubrics and cohort analysis app for schools.
+
+Public line:
+
+- Assessment moderation, rubrics and cohort analysis for schools.
+
+Product phrase:
+
+- Build tasks. Moderate marks. Understand cohorts.
 
 Cohort Studio is a subject-level assessment operations and analysis tool for schools. It helps subject teams create assessment tasks, assign classes and markers, collect marks, manage moderation, finalise results, export data and analyse cohort performance.
 
@@ -19,13 +29,49 @@ Cohort Studio is not:
 
 - a full LMS
 - a student learning platform, at least for MVP
+- a student-facing portal in the current MVP
 - a replacement for official reporting systems
 - a generic spreadsheet
+- a spreadsheet clone
 - an AI marking product
+
+It is an internal assessment operations and moderation system.
 
 ## Core product thesis
 
 Moderators configure and control the assessment system. Teachers work inside the configured system. The app stores the evidence, decisions and data.
+
+## Current implementation status
+
+The project currently has:
+
+- Next.js App Router foundation
+- TypeScript
+- Tailwind-based static UI foundation
+- reusable app shell layout
+- Vercel deployment
+- Supabase client/server helpers
+- environment variable validation
+- Supabase environment variables configured locally and in Vercel
+- foundation database migration applied
+- `schools`, `profiles`, `user_global_roles` and `audit_events` tables
+- RLS enabled on the foundation tables
+- bootstrapped St Mary of the Angels school
+- bootstrapped Lachlan Heycox `system_admin` profile
+- login page
+- logout route
+- email/password Supabase Auth sign-in
+- current active profile lookup
+- top bar profile display
+- `/people` page loading real school-scoped profiles and global roles
+- manual staff profile creation for `system_admin` users
+- optional global role assignment during manual staff creation
+- audit events for `profile_created`
+- audit events for `global_role_assigned`
+- temporary `/supabase-check` route removed after verification
+- Stage 2 database foundation migration file for academic years, subjects, subject instances, units, outcomes, classes, students, class enrolments, subject roles and class roles
+
+The app does not yet implement invite emails, subject setup, student import, task setup, marking, moderation, finalisation, analytics or exports.
 
 ## MVP workflow
 
@@ -62,7 +108,40 @@ The intended build order is:
 
 Future phases should not be mixed into early phases without deliberate decision.
 
-## Intended route map
+## Current routes
+
+Current implemented or scaffolded routes:
+
+- `/`
+- `/login`
+- `/logout`
+- `/people`
+- `/subjects`
+- `/tasks`
+- `/moderation`
+- `/analysis`
+- `/exports`
+- `/settings`
+
+Real routes:
+
+- `/login`
+- `/logout`
+- `/people`
+
+Static/scaffolded routes:
+
+- `/`
+- `/subjects`
+- `/tasks`
+- `/moderation`
+- `/analysis`
+- `/exports`
+- `/settings`
+
+`/supabase-check` is no longer a current route.
+
+## Intended route direction
 
 Likely route structure:
 
@@ -103,6 +182,19 @@ These routes should be added incrementally, not all at once.
 - Avoid duplicate versions of the same table/card/form.
 - Prefer reusable domain components over one mega-component.
 
+## Current architecture rules
+
+- Routes compose.
+- Loaders gather route-scoped data.
+- Components render data and collect input.
+- Server actions mutate state.
+- Permission helpers decide what actions are allowed.
+- Audit helpers record meaningful governance events.
+- Do not put large query or mutation logic directly in page files.
+- Do not fetch unauthorised rows and filter them in the browser.
+- Do not rely on UI-only permission gates.
+- Do not introduce Supabase patterns outside the existing helper files unless deliberately planned.
+
 ## Current database foundation
 
 The implemented Phase 0 database foundation creates:
@@ -115,6 +207,108 @@ The implemented Phase 0 database foundation creates:
 The app is designed with a school boundary from day one. Profiles are app-level staff records linked to Supabase Auth via nullable auth_user_id. Global roles are stored separately from profiles, and audit_events provides the generic audit trail foundation.
 
 Subject, class, student, task, marking, moderation, rubric, import/export and analytics tables are intentionally deferred.
+
+The Stage 2 database foundation now has a migration file for `academic_years`, `subjects`, `subject_instances`, `units`, `outcomes`, `classes`, `students`, `class_enrolments`, `user_subject_roles` and `user_class_roles`. This prepares the app for subject/class/student setup. Task, marking, moderation, rubric, import/export and analytics tables remain intentionally deferred.
+
+### schools
+
+Purpose: school/account boundary.
+
+Key ideas:
+
+- multi-school boundary exists from day one
+- app may operate single-school initially
+- `status` supports `active`, `inactive` and `archived`
+
+### profiles
+
+Purpose: app-level staff profiles linked to Supabase Auth where available.
+
+Key ideas:
+
+- profiles are not the same thing as Supabase Auth users
+- `auth_user_id` is nullable
+- nullable `auth_user_id` supports provisioned or invited users before Auth linking
+- profile statuses include `invited`, `active`, `inactive`, `suspended` and `archived`
+- profiles belong to schools
+
+### user_global_roles
+
+Purpose: school-level role assignments.
+
+Current global roles:
+
+- `system_admin`
+- `school_viewer`
+- `template_manager`
+
+More scoped roles are planned later:
+
+- subject roles
+- class roles
+- task marker assignments
+- moderation case assignments
+
+### audit_events
+
+Purpose: general governance trail.
+
+Currently used for:
+
+- `profile_created`
+- `global_role_assigned`
+
+Future subject, task, marking and moderation actions should also write audit events.
+
+## Auth and access model
+
+- Supabase Auth handles authentication.
+- Cohort Studio profiles handle app-level authorisation.
+- A user being authenticated is not enough to access school data.
+- The app looks for an active profile linked to the auth user.
+- If no active profile exists, the app shows a controlled not-provisioned/no-access state.
+- Staff access is provisioned, not open self-signup.
+- System admins can manually create staff profiles in `/people`.
+- Email invitation flow is not implemented yet.
+- Manual profile creation currently creates an app profile, not a Supabase Auth user.
+
+## Permission model, current and planned
+
+Current implemented permissions:
+
+- `system_admin` can manage people through manual staff profile creation
+- current profile lookup includes school and global roles
+- `/people` is scoped to the current profile's school
+- people mutation is checked server-side, not only hidden in the UI
+
+Planned permissions:
+
+- subject-specific roles
+- class-specific roles
+- task marker assignments
+- `cohort_marker` access
+- marking pools
+- moderation case assignment
+- permission helpers such as `canViewSubject`, `canEditSubjectSetup`, `canSubmitMarkerScore`, `canAssignThirdMarker`, `canFinaliseTask` and `canExportSubjectData`
+
+UI visibility is not sufficient. Server actions must enforce permissions.
+
+## Data loading principle
+
+- Fetch by page context, not whole session.
+- Do not load the whole school dataset at login.
+- Each route should use route-scoped loaders.
+- Loaders should return one shaped object for the page.
+- Use a small number of targeted Supabase queries or RPCs.
+- Postgres/Supabase should handle school boundary filtering, RLS, joins, search, pagination and heavy aggregation.
+- The UI can do small display calculations, formatting, local filters over already-loaded rows, badge styling and chart transforms.
+- Analytics should eventually use database-backed definitions/views/RPCs, not loose client-only calculations.
+
+Current pattern:
+
+- `/people` uses `lib/people/get-people-page-data.ts` as a route-scoped loader
+- `app/people/actions.ts` handles mutations
+- components render data and collect input
 
 ## Data model direction
 
@@ -211,6 +405,37 @@ Core roles:
 
 A single profile.role field is not enough.
 
+## Existing file structure
+
+Current implemented structure includes:
+
+- `app/page.tsx`
+- `app/login/page.tsx`
+- `app/login/login-form.tsx`
+- `app/auth/actions.ts`
+- `app/logout/route.ts`
+- `app/people/page.tsx`
+- `app/people/actions.ts`
+- `components/layout/app-shell.tsx`
+- `components/layout/top-bar.tsx`
+- `components/layout/side-nav.tsx`
+- `components/layout/content-shell.tsx`
+- `components/layout/page-header.tsx`
+- `components/people/add-staff-profile-form.tsx`
+- `components/people/people-table.tsx`
+- `components/people/people-summary-cards.tsx`
+- `lib/env.ts`
+- `lib/supabase/client.ts`
+- `lib/supabase/server.ts`
+- `lib/supabase/types.ts`
+- `lib/auth/current-profile.ts`
+- `lib/auth/permissions.ts`
+- `lib/people/get-people-page-data.ts`
+- `lib/audit/audit-events.ts`
+- `lib/design/navigation.ts`
+- `lib/design/status-styles.ts`
+- `supabase/migrations/0001_foundation.sql`
+
 ## Moderation rules
 
 Basic moderation model:
@@ -256,32 +481,118 @@ The design system should eventually live in:
 - lib/design/status-styles.ts
 - lib/design/navigation.ts
 
-## Development workflow
+## Environment variables
+
+Required:
+
+- `NEXT_PUBLIC_SUPABASE_URL`
+- `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+
+Use the Supabase project URL and the publishable/anon public key. Do not put `sb_secret` keys in `NEXT_PUBLIC` variables. Do not commit `.env.local`. Vercel must also have these environment variables set.
+
+## Current local workflow
 
 Local workflow:
 
-- npm run dev
-- npm run build
-- git add .
-- git commit -m "message"
-- git push
+- `npm run dev`
+- `npm run build`
+- `git add .`
+- `git commit -m "message"`
+- `git push`
 
-Local helper command:
+Local user workflow shortcuts may include:
 
-- cship "commit message"
+- `cohort`
+- `cohortdev`
+- `cohortbuild`
+- `cship "Commit message"`
 
-This should build first, then commit and push only if the build passes.
+Recommended workflow:
 
-## Codex contribution rules
+1. Ask Codex for one bounded pass.
+2. Review changed files.
+3. Run `npm run build`.
+4. Test the route locally.
+5. Use `cship "message"` to build, commit and push if clean.
+
+## Codex prompt discipline
 
 For future Codex passes:
 
-- Work in one bounded pass at a time.
-- State intended file changes before editing.
-- Do not add future-phase features.
-- Do not edit unrelated files.
-- Do not add dependencies unless explicitly requested.
-- Do not create database/schema/auth/RLS code unless the prompt asks for it.
-- Run npm run build before considering the pass complete.
-- Summarise exactly what changed.
-- Keep product language and architecture aligned with this README.
+- prompts should name exact files to inspect
+- prompts should name exact files that may be created
+- prompts should name exact files that may be edited
+- prompts should state files that must not be touched
+- prompts should state the current build phase
+- prompts should state out-of-scope future features
+- Codex should not run `npm run build` automatically unless explicitly allowed
+- Codex should summarise files created, files edited, routes changed, dependencies changed, assumptions and recommended local checks
+- README is product/architecture intent, not a complete file map
+- prompts should use current project files as implementation source of truth
+- do not add future-phase features
+- do not edit unrelated files
+- do not add dependencies unless explicitly requested
+- do not create database/schema/auth/RLS code unless the prompt asks for it
+- keep product language and architecture aligned with this README
+
+## Next planned phase
+
+The next planned phase is Phase 2 subject/class/student foundation.
+
+Planned next database layer:
+
+- `academic_years`
+- `subjects`
+- `subject_instances`
+- `units`
+- `outcomes`
+- `classes`
+- `students`
+- `class_enrolments`
+- `user_subject_roles`
+- `user_class_roles`
+
+Planned next app capabilities:
+
+- create/manage academic years
+- create/manage subject instances
+- create/manage classes
+- create/manage students
+- assign teachers/roles at subject and class scope
+- prepare for student import
+
+Explicitly out of scope until later:
+
+- task setup
+- marker assignment
+- numeric marking
+- variance checking
+- third-marker workflow
+- finalisation
+- exports
+- analytics
+- rubrics
+- templates
+- email invitations
+- audit log UI
+
+## Deferred features
+
+- Supabase Auth email invite flow
+- password reset
+- profile edit/deactivate
+- subject/class/student schema and UI
+- student CSV import
+- task setup
+- scoring rules
+- marker assignments
+- marking interface
+- moderation workflow
+- final results
+- exports
+- analytics
+- rubrics and rubric versions
+- templates
+- generated Supabase types
+- audit log UI
+- middleware/protected-route redirects
