@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { SubjectsPageSubject } from "../../lib/subjects/get-subjects-page-data";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
@@ -52,9 +53,12 @@ export function SubjectList({ subjects }: SubjectListProps) {
               {subjects.map((subject) => (
                 <tr key={subject.id}>
                   <td className="px-6 py-4">
-                    <div className="text-sm font-medium text-slate-950">
+                    <Link
+                      className="text-sm font-medium text-slate-950 hover:text-teal-800"
+                      href={`/subjects/${subject.id}`}
+                    >
                       {subject.title}
-                    </div>
+                    </Link>
                     {subject.subjectType ? (
                       <div className="mt-1 text-xs text-slate-500">
                         {subject.subjectType}
