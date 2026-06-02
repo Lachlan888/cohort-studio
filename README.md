@@ -53,14 +53,14 @@ The project currently has:
 - Supabase client/server helpers
 - environment variable validation
 - Supabase environment variables configured locally and in Vercel
-- foundation database migration applied
-- `schools`, `profiles`, `user_global_roles` and `audit_events` tables
-- RLS enabled on the foundation tables
+- Phase 1 foundation database migration applied
+- Phase 2 subject/class/student foundation migration added and applied
+- RLS enabled on foundation and subject/class/student tables
 - bootstrapped St Mary of the Angels school
 - bootstrapped Lachlan Heycox `system_admin` profile
 - login page
 - logout route
-- email/password Supabase Auth sign-in
+- Supabase email/password sign-in
 - current active profile lookup
 - top bar profile display
 - `/people` page loading real school-scoped profiles and global roles
@@ -69,9 +69,10 @@ The project currently has:
 - audit events for `profile_created`
 - audit events for `global_role_assigned`
 - temporary `/supabase-check` route removed after verification
-- Stage 2 database foundation migration file for academic years, subjects, subject instances, units, outcomes, classes, students, class enrolments, subject roles and class roles
 
-The app does not yet implement invite emails, subject setup, student import, task setup, marking, moderation, finalisation, analytics or exports.
+`/subjects` and related subject pages are not yet wired to live Supabase data. Stage 2 database foundation is ready for the next app pass. The next app pass should make `/subjects` load real subject instances from Supabase.
+
+The app does not yet implement invite emails, subject UI workflows, student import, task setup, marking, moderation, finalisation, analytics or exports.
 
 ## MVP workflow
 
@@ -197,18 +198,42 @@ These routes should be added incrementally, not all at once.
 
 ## Current database foundation
 
-The implemented Phase 0 database foundation creates:
+The applied database foundation has two layers.
+
+### Phase 1 foundation tables
+
+These tables are implemented and applied:
 
 - schools
 - profiles
 - user_global_roles
 - audit_events
 
+Purposes:
+
+- `schools`: school/account boundary
+- `profiles`: app-level staff profiles linked to Supabase Auth where available
+- `user_global_roles`: school-level global role assignments
+- `audit_events`: general governance trail
+
 The app is designed with a school boundary from day one. Profiles are app-level staff records linked to Supabase Auth via nullable auth_user_id. Global roles are stored separately from profiles, and audit_events provides the generic audit trail foundation.
 
-Subject, class, student, task, marking, moderation, rubric, import/export and analytics tables are intentionally deferred.
+### Phase 2 subject/class/student foundation tables
 
-The Stage 2 database foundation now has a migration file for `academic_years`, `subjects`, `subject_instances`, `units`, `outcomes`, `classes`, `students`, `class_enrolments`, `user_subject_roles` and `user_class_roles`. This prepares the app for subject/class/student setup. Task, marking, moderation, rubric, import/export and analytics tables remain intentionally deferred.
+These tables are implemented and applied:
+
+- `academic_years`: school academic years such as 2026
+- `subjects`: school-level subject catalogue, such as English, Media or Legal Studies
+- `subject_instances`: a subject in a specific academic year, such as VCE English 2026
+- `units`: unit, semester or section structure inside a subject instance
+- `outcomes`: Outcome, Area of Study or local outcome structure inside a unit
+- `classes`: teaching groups inside a subject instance, such as 12ENGA
+- `students`: school-level student identity, separate from class membership
+- `class_enrolments`: links students to classes while preserving stable student identity
+- `user_subject_roles`: subject-instance scoped staff roles
+- `user_class_roles`: class-scoped staff roles
+
+Task, marking, moderation, rubric, import/export and analytics tables remain intentionally deferred.
 
 ### schools
 
@@ -260,6 +285,18 @@ Currently used for:
 
 Future subject, task, marking and moderation actions should also write audit events.
 
+## Student identity and class membership
+
+Students are stable school-level objects. They are not created inside a class.
+
+Conceptual structure:
+
+- `students` = stable student identity
+- `classes` = teaching groups inside subject instances
+- `class_enrolments` = links between students and classes
+
+This means the same student can move between classes or appear in multiple subject contexts without becoming a duplicate student identity. This structure prepares the app for later task records, where `student_task_records` should point back to the stable student identity and preserve the class context at the time of the task.
+
 ## Auth and access model
 
 - Supabase Auth handles authentication.
@@ -281,17 +318,59 @@ Current implemented permissions:
 - `/people` is scoped to the current profile's school
 - people mutation is checked server-side, not only hidden in the UI
 
+Current implemented role scopes:
+
+Global:
+
+- `system_admin`
+- `school_viewer`
+- `template_manager`
+
+Subject-instance:
+
+- `subject_moderator`
+- `assessment_owner`
+- `teacher`
+- `cohort_marker`
+- `viewer`
+
+Class:
+
+- `class_teacher`
+- `class_viewer`
+
 Planned permissions:
 
-- subject-specific roles
-- class-specific roles
 - task marker assignments
-- `cohort_marker` access
 - marking pools
 - moderation case assignment
 - permission helpers such as `canViewSubject`, `canEditSubjectSetup`, `canSubmitMarkerScore`, `canAssignThirdMarker`, `canFinaliseTask` and `canExportSubjectData`
 
+Task marker roles are still planned, not implemented yet:
+
+- `marker_1`
+- `marker_2`
+- `marker_3`
+- `assessment_owner` at task scope, if needed
+
+The Stage 2 migration includes subject and class role tables, but the UI for assigning those roles beyond current manual/bootstrap workflows is not yet built.
+
 UI visibility is not sufficient. Server actions must enforce permissions.
+
+## RLS and permissions status
+
+RLS is enabled on the Phase 1 foundation tables and the Phase 2 subject/class/student tables.
+
+Current conservative rule:
+
+- authenticated active users are resolved through profiles
+- school boundary is enforced through `current_school_id()`
+- `system_admin` can write setup data
+- assigned subject/class users can read scoped data
+- ordinary setup writes are currently `system_admin`-only
+- subject moderator write policies can be deliberately expanded later
+
+This is not the final RLS model. RLS protects rows. Server permission helpers protect actions. UI permission gates guide the user. Audit logs record sensitive changes.
 
 ## Data loading principle
 
@@ -435,6 +514,7 @@ Current implemented structure includes:
 - `lib/design/navigation.ts`
 - `lib/design/status-styles.ts`
 - `supabase/migrations/0001_foundation.sql`
+- `supabase/migrations/0002_subject_foundation.sql`
 
 ## Moderation rules
 
@@ -447,6 +527,19 @@ Basic moderation model:
 - A third marker submits a separate score and note.
 - The moderator finalises the result.
 - Original M1 and M2 scores must be preserved as evidence, not overwritten.
+
+## Planned task/marking model note
+
+Cohort Studio should eventually treat each student's submitted assessment as a singular workflow object.
+
+- The task is the assessment design.
+- The `student_task_record` is the paper.
+- Marker scores are readings of that paper.
+- Moderation is the paper's movement through required readers.
+
+Moderation groups should be created from a teacher's first-read pile inside a subject/task, then passed forward to another teacher. In teams larger than two, pass-forward mode should not facilitate two-way swaps. It should enforce a one-direction rotation unless the moderator deliberately chooses a different allocation mode.
+
+This is planned for the later task/marking schema and is not part of the current Stage 2 migration.
 
 ## Analytics principles
 
@@ -529,37 +622,29 @@ For future Codex passes:
 - Codex should summarise files created, files edited, routes changed, dependencies changed, assumptions and recommended local checks
 - README is product/architecture intent, not a complete file map
 - prompts should use current project files as implementation source of truth
+- the user will run `npm run build` or `cship` locally before committing
+- future passes should be narrow and route-scoped
 - do not add future-phase features
 - do not edit unrelated files
 - do not add dependencies unless explicitly requested
 - do not create database/schema/auth/RLS code unless the prompt asks for it
 - keep product language and architecture aligned with this README
 
-## Next planned phase
+## Stage 2 current position
 
-The next planned phase is Phase 2 subject/class/student foundation.
+Stage 2 database foundation is now in place. The app has the database structure needed for academic years, subjects, subject instances, units, outcomes, classes, students, class enrolments, subject roles and class roles.
 
-Planned next database layer:
+The next implementation pass should be route-scoped app loading for `/subjects`.
 
-- `academic_years`
-- `subjects`
-- `subject_instances`
-- `units`
-- `outcomes`
-- `classes`
-- `students`
-- `class_enrolments`
-- `user_subject_roles`
-- `user_class_roles`
+Recommended next app pass:
 
-Planned next app capabilities:
-
-- create/manage academic years
-- create/manage subject instances
-- create/manage classes
-- create/manage students
-- assign teachers/roles at subject and class scope
-- prepare for student import
+- create a `/subjects` route loader
+- load current active profile
+- load accessible subject instances from Supabase
+- show academic year, subject name, subject instance name, status and user role
+- keep it read-only for the first pass
+- do not create subject forms yet
+- do not create class/student management yet
 
 Explicitly out of scope until later:
 
@@ -581,18 +666,28 @@ Explicitly out of scope until later:
 - Supabase Auth email invite flow
 - password reset
 - profile edit/deactivate
-- subject/class/student schema and UI
+- subject creation UI
+- class creation UI
+- student creation UI
 - student CSV import
+- staff email invitations
 - task setup
+- task-to-class assignment
+- `student_task_records`
 - scoring rules
 - marker assignments
+- pass-forward moderation groups
+- read requirements
 - marking interface
+- marker scores
+- variance checking
+- moderation cases
 - moderation workflow
 - final results
-- exports
+- imports/exports
 - analytics
 - rubrics and rubric versions
 - templates
-- generated Supabase types
 - audit log UI
 - middleware/protected-route redirects
+- generated Supabase types
