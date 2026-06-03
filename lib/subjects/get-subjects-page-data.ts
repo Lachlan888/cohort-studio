@@ -19,7 +19,6 @@ type TableQuery<Row> = {
 
 type AcademicYearRow = {
   id: string;
-  label: string;
   school_id: string;
   status: string;
   year: number;
@@ -65,7 +64,6 @@ type SubjectsTableClient = {
 };
 
 export type SubjectsPageSubject = {
-  academicYearLabel: string;
   academicYearStatus: string;
   classCount: number;
   id: string;
@@ -118,9 +116,7 @@ function buildRolesBySubjectInstanceId(roles: SubjectRoleRow[]) {
   }, new Map<string, string[]>());
 }
 
-function buildSummary(
-  subjects: SubjectsPageSubject[],
-): SubjectsPageSummary {
+function buildSummary(subjects: SubjectsPageSubject[]): SubjectsPageSummary {
   return {
     activeSubjectInstances: subjects.filter(
       (subject) => subject.status === "active",
@@ -177,7 +173,7 @@ export async function getSubjectsPageData(): Promise<SubjectsPageData> {
       .eq("school_id", currentProfile.school_id),
     tableClient
       .from("academic_years")
-      .select("id, label, school_id, status, year")
+      .select("id, school_id, status, year")
       .eq("school_id", currentProfile.school_id),
     tableClient
       .from("classes")
@@ -217,7 +213,6 @@ export async function getSubjectsPageData(): Promise<SubjectsPageData> {
       const role = formatRole(roles[0] ?? null) ?? fallbackRole;
 
       return {
-        academicYearLabel: academicYear?.label ?? "Unknown year",
         academicYearStatus: academicYear?.status ?? "unknown",
         classCount: classCountBySubjectInstanceId.get(subjectInstance.id) ?? 0,
         id: subjectInstance.id,

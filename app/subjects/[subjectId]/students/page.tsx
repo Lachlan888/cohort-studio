@@ -14,7 +14,13 @@ export default async function SubjectStudentsPage({
   params,
 }: SubjectStudentsRouteProps) {
   const { subjectId } = await params;
-  const { currentProfile, students, subject } =
+  const {
+    canAdminManageSubjectStudents,
+    classes,
+    currentProfile,
+    students,
+    subject,
+  } =
     await getSubjectStudentsPageData(subjectId);
 
   return (
@@ -34,6 +40,8 @@ export default async function SubjectStudentsPage({
         title={subject ? `${subject.title} students` : "Subject students"}
       />
       <SubjectStudentsPageContent
+        canAdminManageSubjectStudents={canAdminManageSubjectStudents}
+        classes={classes}
         currentProfile={currentProfile}
         students={students}
         subject={subject}

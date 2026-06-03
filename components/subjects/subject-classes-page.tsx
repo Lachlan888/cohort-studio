@@ -2,51 +2,40 @@ import Link from "next/link";
 import type { SubjectClassesPageData } from "../../lib/subjects/get-subject-classes-page-data";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
+import { AdminClassSetupPanel } from "./admin-class-setup-panel";
 import { SubjectClassesTable } from "./subject-classes-table";
 import { SubjectReadOnlyNotice } from "./subject-read-only-notice";
+import { SubjectStateCard } from "./subject-state-card";
 import { SubjectStatusBadge } from "./subject-status-badge";
 import { SubjectWorkspaceNav } from "./subject-workspace-nav";
 
 type SubjectClassesPageProps = SubjectClassesPageData;
 
 export function SubjectClassesPage({
+  canAdminManageSubjectClasses,
   classes,
   currentProfile,
   subject,
 }: SubjectClassesPageProps) {
   if (!currentProfile) {
     return (
-      <Card as="section" className="border-amber-200 bg-amber-50">
-        <Badge variant="warning">No active profile</Badge>
-        <h2 className="mt-4 text-xl font-semibold text-slate-950">
-          This account is not provisioned for Cohort Studio.
-        </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">
-          Ask a system administrator to link your Supabase auth account to an
-          active staff profile before viewing subject classes.
-        </p>
-      </Card>
+      <SubjectStateCard
+        badge="No active profile"
+        description="Sign-in has succeeded, but this account is not linked to an active staff profile for a school. Ask a system administrator to complete staff provisioning before viewing subject classes."
+        title="Subject classes are not available for this account."
+      />
     );
   }
 
   if (!subject) {
     return (
-      <Card as="section">
-        <Badge variant="warning">Not visible</Badge>
-        <h2 className="mt-4 text-xl font-semibold text-slate-950">
-          Subject instance not found.
-        </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-          This subject instance may not exist, or your active profile may not
-          have access to it.
-        </p>
-        <Link
-          className="mt-6 inline-flex text-sm font-medium text-teal-800 hover:text-teal-950"
-          href="/subjects"
-        >
-          Back to subjects
-        </Link>
-      </Card>
+      <SubjectStateCard
+        badge="Subject not visible"
+        description="This subject instance was not found for your current school, or your active profile is not permitted to view its classes."
+        linkHref="/subjects"
+        linkLabel="Back to subjects"
+        title="Subject classes are not visible."
+      />
     );
   }
 
@@ -59,13 +48,15 @@ export function SubjectClassesPage({
           <div>
             <div className="flex flex-wrap gap-2">
               <SubjectStatusBadge status={subject.status} />
-              {subject.role ? <Badge variant="primary">{subject.role}</Badge> : null}
+              {subject.role ? (
+                <Badge variant="primary">{subject.role}</Badge>
+              ) : null}
             </div>
             <h2 className="mt-5 text-2xl font-semibold text-slate-950">
               {subject.title}
             </h2>
             <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
-              {subject.subjectName} · {subject.academicYearLabel}
+              {subject.subjectName} · {subject.year ?? "Unknown year"}
               {subject.subjectType ? ` · ${subject.subjectType}` : ""}
             </p>
           </div>
@@ -78,7 +69,10 @@ export function SubjectClassesPage({
         </div>
       </Card>
 
-      <SubjectReadOnlyNotice />
+      <SubjectReadOnlyNotice description="This page displays class setup and enrolment summaries from Supabase. Creation, editing and imports are outside this read-only pass." />
+      {canAdminManageSubjectClasses ? (
+        <AdminClassSetupPanel subjectId={subject.id} />
+      ) : null}
       <SubjectClassesTable classes={classes} />
     </>
   );

@@ -1,30 +1,30 @@
 import Link from "next/link";
-import type { SubjectStudentsPageData } from "../../lib/subjects/get-subject-students-page-data";
+import type { SubjectTasksPageData } from "../../lib/subjects/get-subject-tasks-page-data";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
-import { AdminStudentEnrolmentPanel } from "./admin-student-enrolment-panel";
-import { AdminStudentImportPanel } from "./admin-student-import-panel";
+import { AdminTaskSetupPanel } from "./admin-task-setup-panel";
 import { SubjectReadOnlyNotice } from "./subject-read-only-notice";
 import { SubjectStateCard } from "./subject-state-card";
 import { SubjectStatusBadge } from "./subject-status-badge";
-import { SubjectStudentsTable } from "./subject-students-table";
+import { SubjectTasksTable } from "./subject-tasks-table";
 import { SubjectWorkspaceNav } from "./subject-workspace-nav";
 
-type SubjectStudentsPageProps = SubjectStudentsPageData;
+type SubjectTasksPageProps = SubjectTasksPageData;
 
-export function SubjectStudentsPage({
-  canAdminManageSubjectStudents,
-  classes,
+export function SubjectTasksPage({
+  canAdminManageSubjectTasks,
   currentProfile,
-  students,
+  outcomes,
   subject,
-}: SubjectStudentsPageProps) {
+  tasks,
+  units,
+}: SubjectTasksPageProps) {
   if (!currentProfile) {
     return (
       <SubjectStateCard
         badge="No active profile"
-        description="Sign-in has succeeded, but this account is not linked to an active staff profile for a school. Ask a system administrator to complete staff provisioning before viewing subject students."
-        title="Subject students are not available for this account."
+        description="Sign-in has succeeded, but this account is not linked to an active staff profile for a school. Ask a system administrator to complete staff provisioning before viewing subject tasks."
+        title="Subject tasks are not available for this account."
       />
     );
   }
@@ -33,17 +33,17 @@ export function SubjectStudentsPage({
     return (
       <SubjectStateCard
         badge="Subject not visible"
-        description="This subject instance was not found for your current school, or your active profile is not permitted to view its students."
+        description="This subject instance was not found for your current school, or your active profile is not permitted to view its tasks."
         linkHref="/subjects"
         linkLabel="Back to subjects"
-        title="Subject students are not visible."
+        title="Subject tasks are not visible."
       />
     );
   }
 
   return (
     <>
-      <SubjectWorkspaceNav active="students" subjectId={subject.id} />
+      <SubjectWorkspaceNav active="tasks" subjectId={subject.id} />
 
       <Card as="section">
         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -73,21 +73,22 @@ export function SubjectStudentsPage({
 
       <SubjectReadOnlyNotice
         description={
-          canAdminManageSubjectStudents
-            ? "This page displays student identities and enrolment summaries from Supabase. System admins can use the setup controls below to import and enrol students."
-            : "This page displays student identities and enrolment summaries from Supabase. Student setup is restricted to system admins."
+          canAdminManageSubjectTasks
+            ? "This page displays draft task setup records from Supabase. System admins can create draft numeric tasks below."
+            : "This page displays draft task setup records from Supabase. Task creation is restricted to system admins."
         }
       />
-      {canAdminManageSubjectStudents ? (
-        <>
-          <AdminStudentImportPanel subjectId={subject.id} />
-          <AdminStudentEnrolmentPanel
-            classes={classes}
-            subjectId={subject.id}
-          />
-        </>
+      {canAdminManageSubjectTasks ? (
+        <AdminTaskSetupPanel
+          outcomes={outcomes}
+          subjectId={subject.id}
+          units={units}
+        />
       ) : null}
-      <SubjectStudentsTable students={students} />
+      <SubjectTasksTable
+        canAdminManageSubjectTasks={canAdminManageSubjectTasks}
+        tasks={tasks}
+      />
     </>
   );
 }

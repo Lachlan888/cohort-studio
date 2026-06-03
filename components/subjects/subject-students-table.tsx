@@ -13,11 +13,12 @@ export function SubjectStudentsTable({ students }: SubjectStudentsTableProps) {
       <Card as="section">
         <Badge variant="warning">No students</Badge>
         <h2 className="mt-4 text-xl font-semibold text-slate-950">
-          No students are visible for this subject.
+          No students are visible for this subject instance.
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
           Students may not have been enrolled in visible classes yet, or your
-          active profile may not have access to them.
+          active profile may not be permitted to view student enrolments for
+          this subject instance.
         </p>
       </Card>
     );
@@ -28,8 +29,8 @@ export function SubjectStudentsTable({ students }: SubjectStudentsTableProps) {
       <div className="border-b border-slate-200 px-6 py-5">
         <h2 className="text-xl font-semibold text-slate-950">Students</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Read-only student identities and class membership visible for this
-          subject instance.
+          Read-only student identities with active, moved, withdrawn and total
+          enrolment counts for this subject instance.
         </p>
       </div>
       <div className="overflow-x-auto">
@@ -42,6 +43,8 @@ export function SubjectStudentsTable({ students }: SubjectStudentsTableProps) {
               <th className="px-6 py-3">Classes</th>
               <th className="px-6 py-3">Status</th>
               <th className="px-6 py-3">Active</th>
+              <th className="px-6 py-3">Moved</th>
+              <th className="px-6 py-3">Withdrawn</th>
               <th className="px-6 py-3">Total</th>
             </tr>
           </thead>
@@ -74,6 +77,12 @@ export function SubjectStudentsTable({ students }: SubjectStudentsTableProps) {
                 </td>
                 <td className="px-6 py-4 text-slate-600">
                   {student.activeEnrolments}
+                </td>
+                <td className="px-6 py-4 text-slate-600">
+                  {student.movedEnrolments}
+                </td>
+                <td className="px-6 py-4 text-slate-600">
+                  {student.withdrawnEnrolments}
                 </td>
                 <td className="px-6 py-4 text-slate-600">
                   {student.totalEnrolments}

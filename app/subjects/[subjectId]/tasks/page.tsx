@@ -1,48 +1,51 @@
 import { AppShell } from "../../../../components/layout/app-shell";
 import { PageHeader } from "../../../../components/layout/page-header";
-import { SubjectClassesPage as SubjectClassesPageContent } from "../../../../components/subjects/subject-classes-page";
+import { SubjectTasksPage as SubjectTasksPageContent } from "../../../../components/subjects/subject-tasks-page";
 import { Badge } from "../../../../components/ui/badge";
-import { getSubjectClassesPageData } from "../../../../lib/subjects/get-subject-classes-page-data";
+import { getSubjectTasksPageData } from "../../../../lib/subjects/get-subject-tasks-page-data";
 
 export const dynamic = "force-dynamic";
 
-type SubjectClassesRouteProps = {
+type SubjectTasksRouteProps = {
   params: Promise<{ subjectId: string }>;
 };
 
-export default async function SubjectClassesPage({
+export default async function SubjectTasksPage({
   params,
-}: SubjectClassesRouteProps) {
+}: SubjectTasksRouteProps) {
   const { subjectId } = await params;
   const {
-    canAdminManageSubjectClasses,
-    classes,
+    canAdminManageSubjectTasks,
     currentProfile,
+    outcomes,
     subject,
-  } =
-    await getSubjectClassesPageData(subjectId);
+    tasks,
+    units,
+  } = await getSubjectTasksPageData(subjectId);
 
   return (
     <AppShell activeHref="/subjects">
       <PageHeader
         description={
           currentProfile
-            ? `Read-only subject classes visible for ${currentProfile.school.name}.`
+            ? `Subject task setup visible for ${currentProfile.school.name}.`
             : "Sign-in alone is not enough to access school subject data."
         }
-        eyebrow="Subject classes"
+        eyebrow="Subject tasks"
         rightContent={
           currentProfile ? (
             <Badge variant="primary">{currentProfile.school.name}</Badge>
           ) : null
         }
-        title={subject ? `${subject.title} classes` : "Subject classes"}
+        title={subject ? `${subject.title} tasks` : "Subject tasks"}
       />
-      <SubjectClassesPageContent
-        canAdminManageSubjectClasses={canAdminManageSubjectClasses}
-        classes={classes}
+      <SubjectTasksPageContent
+        canAdminManageSubjectTasks={canAdminManageSubjectTasks}
         currentProfile={currentProfile}
+        outcomes={outcomes}
         subject={subject}
+        tasks={tasks}
+        units={units}
       />
     </AppShell>
   );

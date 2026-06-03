@@ -20,7 +20,7 @@ export function SubjectList({ subjects }: SubjectListProps) {
           Subject instances
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Read-only subject setup records visible to your active profile.
+          Read-only subject instances visible to your active profile.
         </p>
       </div>
 
@@ -32,18 +32,12 @@ export function SubjectList({ subjects }: SubjectListProps) {
                 <th className="border-b border-slate-200 px-6 py-3">
                   Subject instance
                 </th>
-                <th className="border-b border-slate-200 px-6 py-3">
-                  Subject
-                </th>
+                <th className="border-b border-slate-200 px-6 py-3">Subject</th>
                 <th className="border-b border-slate-200 px-6 py-3">
                   Academic year
                 </th>
-                <th className="border-b border-slate-200 px-6 py-3">
-                  Classes
-                </th>
-                <th className="border-b border-slate-200 px-6 py-3">
-                  Status
-                </th>
+                <th className="border-b border-slate-200 px-6 py-3">Classes</th>
+                <th className="border-b border-slate-200 px-6 py-3">Status</th>
                 <th className="border-b border-slate-200 px-6 py-3">
                   Your role
                 </th>
@@ -69,7 +63,7 @@ export function SubjectList({ subjects }: SubjectListProps) {
                     {subject.subjectName}
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">
-                    {subject.academicYearLabel}
+                    {subject.year ?? "Unknown"}
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-600">
                     {formatClassCount(subject.classCount)}
@@ -91,8 +85,13 @@ export function SubjectList({ subjects }: SubjectListProps) {
         </div>
       ) : (
         <div className="px-6 py-10">
+          <h3 className="text-base font-semibold text-slate-950">
+            No subject instances are visible.
+          </h3>
           <p className="text-sm leading-6 text-slate-600">
-            No subject instances are visible for this profile yet.
+            Your active profile has no visible subject instances for this
+            school. Subject setup may not exist yet, or your role may not
+            include subject access.
           </p>
         </div>
       )}

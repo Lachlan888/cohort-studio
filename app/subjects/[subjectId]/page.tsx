@@ -16,9 +16,8 @@ export default async function SubjectOverviewPage({
   params,
 }: SubjectOverviewRouteProps) {
   const { subjectId } = await params;
-  const { currentProfile, subject } = await getSubjectOverviewPageData(
-    subjectId,
-  );
+  const { canAdminManageSubjectStructure, currentProfile, subject } =
+    await getSubjectOverviewPageData(subjectId);
 
   return (
     <AppShell activeHref="/subjects">
@@ -38,6 +37,7 @@ export default async function SubjectOverviewPage({
       />
 
       <SubjectOverviewPageContent
+        canAdminManageSubjectStructure={canAdminManageSubjectStructure}
         currentProfile={currentProfile}
         subject={subject}
       />

@@ -19,7 +19,6 @@ type TableQuery<Row> = {
 
 type AcademicYearRow = {
   id: string;
-  label: string;
   school_id: string;
   status: string;
   year: number;
@@ -115,7 +114,6 @@ export type SubjectOverviewUnit = {
 };
 
 export type SubjectOverview = {
-  academicYearLabel: string;
   academicYearStatus: string;
   classes: SubjectOverviewClass[];
   id: string;
@@ -131,6 +129,7 @@ export type SubjectOverview = {
 };
 
 export type SubjectOverviewPageData = {
+  canAdminManageSubjectStructure: boolean;
   currentProfile: CurrentProfile | null;
   subject: SubjectOverview | null;
 };
@@ -163,6 +162,7 @@ export async function getSubjectOverviewPageData(
 
   if (!currentProfile) {
     return {
+      canAdminManageSubjectStructure: false,
       currentProfile: null,
       subject: null,
     };
@@ -181,6 +181,7 @@ export async function getSubjectOverviewPageData(
 
   if (!subjectInstance) {
     return {
+      canAdminManageSubjectStructure: isSystemAdmin(currentProfile),
       currentProfile,
       subject: null,
     };
@@ -202,7 +203,7 @@ export async function getSubjectOverviewPageData(
       .eq("id", subjectInstance.subject_id),
     tableClient
       .from("academic_years")
-      .select("id, label, school_id, status, year")
+      .select("id, school_id, status, year")
       .eq("school_id", currentProfile.school_id)
       .eq("id", subjectInstance.academic_year_id),
     tableClient
@@ -221,7 +222,9 @@ export async function getSubjectOverviewPageData(
       .eq("subject_instance_id", subjectInstance.id),
     tableClient
       .from("outcomes")
-      .select("id, name, school_id, sort_order, status, subject_instance_id, unit_id")
+      .select(
+        "id, name, school_id, sort_order, status, subject_instance_id, unit_id",
+      )
       .eq("school_id", currentProfile.school_id)
       .eq("subject_instance_id", subjectInstance.id),
     tableClient
@@ -243,23 +246,24 @@ export async function getSubjectOverviewPageData(
   const studentIds = new Set(
     subjectEnrolments.map((enrolment) => enrolment.student_id),
   );
-  const outcomesByUnitId = (outcomes ?? []).reduce<
-    Map<string, OutcomeRow[]>
-  >((map, outcome) => {
-    const currentOutcomes = map.get(outcome.unit_id) ?? [];
+  const outcomesByUnitId = (outcomes ?? []).reduce<Map<string, OutcomeRow[]>>(
+    (map, outcome) => {
+      const currentOutcomes = map.get(outcome.unit_id) ?? [];
 
-    map.set(outcome.unit_id, [...currentOutcomes, outcome]);
+      map.set(outcome.unit_id, [...currentOutcomes, outcome]);
 
-    return map;
-  }, new Map<string, OutcomeRow[]>());
+      return map;
+    },
+    new Map<string, OutcomeRow[]>(),
+  );
   const role =
     formatRole(roles?.[0]?.role ?? null) ??
     (isSystemAdmin(currentProfile) ? "System admin" : null);
 
   return {
+    canAdminManageSubjectStructure: isSystemAdmin(currentProfile),
     currentProfile,
     subject: {
-      academicYearLabel: academicYear?.label ?? "Unknown year",
       academicYearStatus: academicYear?.status ?? "unknown",
       classes: (classes ?? [])
         .map((classRow) => ({
@@ -292,8 +296,7 @@ export async function getSubjectOverviewPageData(
           name: unit.name,
           outcomes: [...(outcomesByUnitId.get(unit.id) ?? [])]
             .sort((first, second) => {
-              const sortOrderComparison =
-                first.sort_order - second.sort_order;
+              const sortOrderComparison = first.sort_order - second.sort_order;
 
               if (sortOrderComparison !== 0) {
                 return sortOrderComparison;

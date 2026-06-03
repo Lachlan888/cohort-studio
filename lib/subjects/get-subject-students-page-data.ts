@@ -19,7 +19,6 @@ type TableQuery<Row> = {
 
 type AcademicYearRow = {
   id: string;
-  label: string;
   school_id: string;
   year: number;
 };
@@ -93,14 +92,15 @@ export type SubjectStudentsPageStudent = {
   firstName: string;
   id: string;
   preferredName: string | null;
+  movedEnrolments: number;
   status: string;
   studentCode: string | null;
   surname: string;
   totalEnrolments: number;
+  withdrawnEnrolments: number;
 };
 
 export type SubjectStudentsPageSubject = {
-  academicYearLabel: string;
   id: string;
   role: string | null;
   status: string;
@@ -110,7 +110,15 @@ export type SubjectStudentsPageSubject = {
   year: number | null;
 };
 
+export type SubjectStudentsPageClass = {
+  id: string;
+  name: string;
+  status: string;
+};
+
 export type SubjectStudentsPageData = {
+  canAdminManageSubjectStudents: boolean;
+  classes: SubjectStudentsPageClass[];
   currentProfile: CurrentProfile | null;
   students: SubjectStudentsPageStudent[];
   subject: SubjectStudentsPageSubject | null;
@@ -140,6 +148,8 @@ export async function getSubjectStudentsPageData(
 
   if (!currentProfile) {
     return {
+      canAdminManageSubjectStudents: false,
+      classes: [],
       currentProfile: null,
       students: [],
       subject: null,
@@ -159,6 +169,8 @@ export async function getSubjectStudentsPageData(
 
   if (!subjectInstance) {
     return {
+      canAdminManageSubjectStudents: isSystemAdmin(currentProfile),
+      classes: [],
       currentProfile,
       students: [],
       subject: null,
@@ -180,7 +192,7 @@ export async function getSubjectStudentsPageData(
       .eq("id", subjectInstance.subject_id),
     tableClient
       .from("academic_years")
-      .select("id, label, school_id, year")
+      .select("id, school_id, year")
       .eq("school_id", currentProfile.school_id)
       .eq("id", subjectInstance.academic_year_id),
     tableClient
@@ -194,7 +206,9 @@ export async function getSubjectStudentsPageData(
       .eq("school_id", currentProfile.school_id),
     tableClient
       .from("students")
-      .select("email, first_name, id, preferred_name, school_id, status, student_code, surname")
+      .select(
+        "email, first_name, id, preferred_name, school_id, status, student_code, surname",
+      )
       .eq("school_id", currentProfile.school_id),
     tableClient
       .from("user_subject_roles")
@@ -206,7 +220,9 @@ export async function getSubjectStudentsPageData(
 
   const subject = subjects?.[0] ?? null;
   const academicYear = academicYears?.[0] ?? null;
-  const classesById = new Map((classes ?? []).map((classRow) => [classRow.id, classRow]));
+  const classesById = new Map(
+    (classes ?? []).map((classRow) => [classRow.id, classRow]),
+  );
   const subjectClassIds = new Set(classesById.keys());
   const subjectEnrolments = (enrolments ?? []).filter((enrolment) =>
     subjectClassIds.has(enrolment.class_id),
@@ -225,6 +241,14 @@ export async function getSubjectStudentsPageData(
     (isSystemAdmin(currentProfile) ? "System admin" : null);
 
   return {
+    canAdminManageSubjectStudents: isSystemAdmin(currentProfile),
+    classes: (classes ?? [])
+      .map((classRow) => ({
+        id: classRow.id,
+        name: classRow.name,
+        status: classRow.status,
+      }))
+      .sort((first, second) => first.name.localeCompare(second.name)),
     currentProfile,
     students: (students ?? [])
       .filter((student) => enrolmentsByStudentId.has(student.id))
@@ -243,11 +267,17 @@ export async function getSubjectStudentsPageData(
           email: student.email,
           firstName: student.first_name,
           id: student.id,
+          movedEnrolments: studentEnrolments.filter(
+            (enrolment) => enrolment.status === "moved",
+          ).length,
           preferredName: student.preferred_name,
           status: student.status,
           studentCode: student.student_code,
           surname: student.surname,
           totalEnrolments: studentEnrolments.length,
+          withdrawnEnrolments: studentEnrolments.filter(
+            (enrolment) => enrolment.status === "withdrawn",
+          ).length,
         };
       })
       .sort((first, second) => {
@@ -260,7 +290,6 @@ export async function getSubjectStudentsPageData(
         return first.firstName.localeCompare(second.firstName);
       }),
     subject: {
-      academicYearLabel: academicYear?.label ?? "Unknown year",
       id: subjectInstance.id,
       role,
       status: subjectInstance.status,

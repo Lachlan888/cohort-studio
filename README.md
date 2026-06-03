@@ -55,7 +55,10 @@ The project currently has:
 - Supabase environment variables configured locally and in Vercel
 - Phase 1 foundation database migration applied
 - Phase 2 subject/class/student foundation migration added and applied
+- Phase 4 task setup foundation migration added
+- academic years simplified to the numeric `year` field only
 - RLS enabled on foundation and subject/class/student tables
+- RLS enabled on task setup foundation tables
 - bootstrapped St Mary of the Angels school
 - bootstrapped Lachlan Heycox `system_admin` profile
 - login page
@@ -68,11 +71,23 @@ The project currently has:
 - optional global role assignment during manual staff creation
 - audit events for `profile_created`
 - audit events for `global_role_assigned`
+- `/subjects` page loading real school-scoped subject instances from Supabase in read-only mode
+- subject overview, classes and students pages loading real school-scoped Supabase data in read-only mode
+- admin-only subject creation UI
+- admin-only subject structure management for classes, basic students and enrolments, units and outcomes
+- admin-only pasted CSV student import for existing active subject classes, with row-level validation and partial valid-row commits
+- task schema foundation for draft numeric task setup
+- `/subjects/[subjectId]/tasks` page loading real subject-scoped task setup data from Supabase
+- admin-only draft numeric task creation UI
+- audit events for `task_created`
+- audit events for subject setup changes including class, student, enrolment, unit and outcome creation and student import commits
 - temporary `/supabase-check` route removed after verification
 
-`/subjects` and related subject pages are not yet wired to live Supabase data. Stage 2 database foundation is ready for the next app pass. The next app pass should make `/subjects` load real subject instances from Supabase.
+Stage 2 database foundation, the read-only subject workspace, admin-only subject setup management, the bounded pasted CSV student import MVP, the Stage 4 task schema foundation and draft numeric task setup are now implemented. Normal users continue to see read-only subject workspace pages.
 
-The app does not yet implement invite emails, subject UI workflows, student import, task setup, marking, moderation, finalisation, analytics or exports.
+The pasted CSV import supports the canonical `student_id,first_name,preferred_name,surname,email,class,status` template, the `student_code`, `last_name` and `class_code` aliases, simple quoted cells, blank-line trimming, extra-column warnings and duplicate student ID rejection inside an upload. It imports only into existing active classes and does not create classes automatically.
+
+The app does not yet implement invite emails, XLSX import, drag-and-drop upload, full import history, staged import tables, column mapping UI, staff/class teacher assignment, class assignment to tasks, student task records, marking, moderation, finalisation, analytics or exports.
 
 ## MVP workflow
 
@@ -118,6 +133,11 @@ Current implemented or scaffolded routes:
 - `/logout`
 - `/people`
 - `/subjects`
+- `/subjects/new`
+- `/subjects/[subjectId]`
+- `/subjects/[subjectId]/classes`
+- `/subjects/[subjectId]/students`
+- `/subjects/[subjectId]/tasks`
 - `/tasks`
 - `/moderation`
 - `/analysis`
@@ -129,11 +149,16 @@ Real routes:
 - `/login`
 - `/logout`
 - `/people`
+- `/subjects`
+- `/subjects/new`
+- `/subjects/[subjectId]`
+- `/subjects/[subjectId]/classes`
+- `/subjects/[subjectId]/students`
+- `/subjects/[subjectId]/tasks`
 
 Static/scaffolded routes:
 
 - `/`
-- `/subjects`
 - `/tasks`
 - `/moderation`
 - `/analysis`
@@ -630,26 +655,34 @@ For future Codex passes:
 - do not create database/schema/auth/RLS code unless the prompt asks for it
 - keep product language and architecture aligned with this README
 
-## Stage 2 current position
+## Stage 4 current position
 
-Stage 2 database foundation is now in place. The app has the database structure needed for academic years, subjects, subject instances, units, outcomes, classes, students, class enrolments, subject roles and class roles.
+Stage 2 database foundation is now in place. The app has the database structure needed for academic years, subjects, subject instances, units, outcomes, classes, students, class enrolments, subject roles and class roles. Academic years now use the numeric `year` field only; there is no separate app-facing academic year label.
 
-The next implementation pass should be route-scoped app loading for `/subjects`.
+The read-only subject workspace is now implemented. `/subjects`, `/subjects/[subjectId]`, `/subjects/[subjectId]/classes` and `/subjects/[subjectId]/students` load real school-scoped Supabase data for normal users.
 
-Recommended next app pass:
+Admin-only subject setup management is now implemented. System admins can create subject instances, add classes, add basic student records, enrol students into classes, add simple units and outcomes, and paste CSV student imports into existing active classes using the existing Stage 2 schema.
 
-- create a `/subjects` route loader
-- load current active profile
-- load accessible subject instances from Supabase
-- show academic year, subject name, subject instance name, status and user role
-- keep it read-only for the first pass
-- do not create subject forms yet
-- do not create class/student management yet
+The pasted CSV import has been hardened for manual QA. It validates required headers and row fields, reports row-level errors, warns on missing student IDs and ignored extra columns, skips unsupported statuses and unknown classes, rejects duplicate student IDs within the upload, and can commit valid rows while skipping invalid rows.
+
+The Stage 4 task setup foundation is now in place. The schema has `tasks`, `task_scoring_rules` and `task_moderation_rules` tables for draft numeric task setup inside subject instances. `/subjects/[subjectId]/tasks` shows the subject task list and lets system admins create draft numeric tasks. It captures optional unit/outcome links, numeric maximum scores, optional display maximum scores, optional pass thresholds, required initial marker counts, variance thresholds and moderation pathway settings.
+
+Normal users can view the task list read-only when they can view the subject. Task creation controls remain system-admin only.
+
+## Recommended next app pass
+
+The next implementation pass should be one of:
+
+- task setup QA and polish across admin and read-only task views
+- task-to-class assignment schema planning
+
+Keep the next pass limited to task setup. Do not move to marking or moderation yet.
 
 Explicitly out of scope until later:
 
-- task setup
+- class assignment to tasks
 - marker assignment
+- student task records
 - numeric marking
 - variance checking
 - third-marker workflow
@@ -660,18 +693,20 @@ Explicitly out of scope until later:
 - templates
 - email invitations
 - audit log UI
+- staff/class teacher assignment
 
 ## Deferred features
 
 - Supabase Auth email invite flow
 - password reset
 - profile edit/deactivate
-- subject creation UI
-- class creation UI
-- student creation UI
-- student CSV import
+- XLSX import
+- drag-and-drop upload
+- full import history
+- staged import tables
+- column mapping UI
+- staff/class teacher assignment
 - staff email invitations
-- task setup
 - task-to-class assignment
 - `student_task_records`
 - scoring rules

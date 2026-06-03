@@ -13,11 +13,11 @@ export function SubjectClassesTable({ classes }: SubjectClassesTableProps) {
       <Card as="section">
         <Badge variant="warning">No classes</Badge>
         <h2 className="mt-4 text-xl font-semibold text-slate-950">
-          No classes are visible for this subject.
+          No classes are visible for this subject instance.
         </h2>
         <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-600">
           Classes may not have been set up yet, or your active profile may not
-          have access to them.
+          be permitted to view class setup for this subject instance.
         </p>
       </Card>
     );
@@ -28,7 +28,8 @@ export function SubjectClassesTable({ classes }: SubjectClassesTableProps) {
       <div className="border-b border-slate-200 px-6 py-5">
         <h2 className="text-xl font-semibold text-slate-950">Classes</h2>
         <p className="mt-2 text-sm text-slate-600">
-          Read-only class setup and enrolment counts for this subject instance.
+          Read-only class setup with active, moved, withdrawn and total
+          enrolment counts.
         </p>
       </div>
       <div className="overflow-x-auto">

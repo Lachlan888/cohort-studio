@@ -1,7 +1,6 @@
 import type { SubjectsPageData } from "../../lib/subjects/get-subjects-page-data";
-import { Badge } from "../ui/badge";
-import { Card } from "../ui/card";
 import { SubjectList } from "./subject-list";
+import { SubjectStateCard } from "./subject-state-card";
 import { SubjectSummaryCards } from "./subject-summary-card";
 
 type SubjectsPageProps = SubjectsPageData;
@@ -13,16 +12,11 @@ export function SubjectsPage({
 }: SubjectsPageProps) {
   if (!currentProfile) {
     return (
-      <Card as="section" className="border-amber-200 bg-amber-50">
-        <Badge variant="warning">No active profile</Badge>
-        <h2 className="mt-4 text-xl font-semibold text-slate-950">
-          This account is not provisioned for Cohort Studio.
-        </h2>
-        <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">
-          Ask a system administrator to link your Supabase auth account to an
-          active staff profile before viewing school subject setup.
-        </p>
-      </Card>
+      <SubjectStateCard
+        badge="No active profile"
+        description="Sign-in has succeeded, but this account is not linked to an active staff profile for a school. Ask a system administrator to complete staff provisioning before viewing subject setup."
+        title="Subject setup is not available for this account."
+      />
     );
   }
 

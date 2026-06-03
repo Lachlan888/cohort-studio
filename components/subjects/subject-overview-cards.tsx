@@ -9,7 +9,7 @@ export function SubjectOverviewCards({ subject }: SubjectOverviewCardsProps) {
   const items = [
     {
       label: "Academic year",
-      value: subject.academicYearLabel,
+      value: subject.year ?? "Unknown",
     },
     {
       label: "Classes",

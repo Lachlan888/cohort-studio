@@ -51,14 +51,21 @@ export function SubjectStructureSummary({
                     </div>
                   ))}
                 </div>
-              ) : null}
+              ) : (
+                <p className="mt-4 text-sm leading-6 text-slate-600">
+                  No outcomes are visible for this unit.
+                </p>
+              )}
             </div>
           ))}
         </div>
       ) : (
         <div className="px-6 py-10">
+          <h3 className="text-base font-semibold text-slate-950">
+            No units or outcomes are visible.
+          </h3>
           <p className="text-sm leading-6 text-slate-600">
-            No units or outcomes are visible for this subject instance yet.
+            This subject instance has no visible structure records yet.
           </p>
         </div>
       )}

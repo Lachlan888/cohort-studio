@@ -19,7 +19,6 @@ type TableQuery<Row> = {
 
 type AcademicYearRow = {
   id: string;
-  label: string;
   school_id: string;
   year: number;
 };
@@ -94,7 +93,6 @@ export type SubjectClassesPageClass = {
 };
 
 export type SubjectClassesPageSubject = {
-  academicYearLabel: string;
   id: string;
   role: string | null;
   status: string;
@@ -105,6 +103,7 @@ export type SubjectClassesPageSubject = {
 };
 
 export type SubjectClassesPageData = {
+  canAdminManageSubjectClasses: boolean;
   classes: SubjectClassesPageClass[];
   currentProfile: CurrentProfile | null;
   subject: SubjectClassesPageSubject | null;
@@ -143,6 +142,7 @@ export async function getSubjectClassesPageData(
 
   if (!currentProfile) {
     return {
+      canAdminManageSubjectClasses: false,
       classes: [],
       currentProfile: null,
       subject: null,
@@ -162,6 +162,7 @@ export async function getSubjectClassesPageData(
 
   if (!subjectInstance) {
     return {
+      canAdminManageSubjectClasses: isSystemAdmin(currentProfile),
       classes: [],
       currentProfile,
       subject: null,
@@ -183,7 +184,7 @@ export async function getSubjectClassesPageData(
       .eq("id", subjectInstance.subject_id),
     tableClient
       .from("academic_years")
-      .select("id, label, school_id, year")
+      .select("id, school_id, year")
       .eq("school_id", currentProfile.school_id)
       .eq("id", subjectInstance.academic_year_id),
     tableClient
@@ -227,6 +228,7 @@ export async function getSubjectClassesPageData(
   }, new Map<string, ClassEnrolmentRow[]>());
 
   return {
+    canAdminManageSubjectClasses: isSystemAdmin(currentProfile),
     classes: (classes ?? [])
       .map((classRow) => {
         const summary = summariseEnrolments(
@@ -246,7 +248,6 @@ export async function getSubjectClassesPageData(
       .sort((first, second) => first.name.localeCompare(second.name)),
     currentProfile,
     subject: {
-      academicYearLabel: academicYear?.label ?? "Unknown year",
       id: subjectInstance.id,
       role: subjectRole,
       status: subjectInstance.status,

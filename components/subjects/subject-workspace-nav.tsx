@@ -1,7 +1,7 @@
 import Link from "next/link";
 
 type SubjectWorkspaceNavProps = {
-  active: "classes" | "overview" | "students";
+  active: "classes" | "overview" | "students" | "tasks";
   subjectId: string;
 };
 
@@ -20,6 +20,11 @@ const navItems = [
     key: "students",
     hrefSuffix: "/students",
     label: "Students",
+  },
+  {
+    key: "tasks",
+    hrefSuffix: "/tasks",
+    label: "Tasks",
   },
 ] as const;
 
