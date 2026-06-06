@@ -79,15 +79,19 @@ The project currently has:
 - task schema foundation for draft numeric task setup
 - `/subjects/[subjectId]/tasks` page loading real subject-scoped task setup data from Supabase
 - admin-only draft numeric task creation UI
+- task assignment foundation for assigning draft tasks to active classes
+- admin-only Marker 1 and Marker 2 assignment by task class
+- admin-only task publishing that generates student task records from active class enrolments
 - audit events for `task_created`
+- audit events for `task_class_assigned`, `task_marker_assigned` and `task_published`
 - audit events for subject setup changes including class, student, enrolment, unit and outcome creation and student import commits
 - temporary `/supabase-check` route removed after verification
 
-Stage 2 database foundation, the read-only subject workspace, admin-only subject setup management, the bounded pasted CSV student import MVP, the Stage 4 task schema foundation and draft numeric task setup are now implemented. Normal users continue to see read-only subject workspace pages.
+Stage 2 database foundation, the read-only subject workspace, admin-only subject setup management, the bounded pasted CSV student import MVP, the Stage 4 task schema foundation, draft numeric task setup, class assignment, marker assignment and task publishing foundation are now implemented. Normal users continue to see read-only subject workspace pages.
 
 The pasted CSV import supports the canonical `student_id,first_name,preferred_name,surname,email,class,status` template, the `student_code`, `last_name` and `class_code` aliases, simple quoted cells, blank-line trimming, extra-column warnings and duplicate student ID rejection inside an upload. It imports only into existing active classes and does not create classes automatically.
 
-The app does not yet implement invite emails, XLSX import, drag-and-drop upload, full import history, staged import tables, column mapping UI, staff/class teacher assignment, class assignment to tasks, student task records, marking, moderation, finalisation, analytics or exports.
+The app does not yet implement invite emails, XLSX import, drag-and-drop upload, full import history, staged import tables, column mapping UI, staff/class teacher assignment, score entry, variance checking, third-marker moderation, finalisation, analytics or exports.
 
 ## MVP workflow
 
@@ -223,7 +227,7 @@ These routes should be added incrementally, not all at once.
 
 ## Current database foundation
 
-The applied database foundation has two layers.
+The applied database foundation has four layers.
 
 ### Phase 1 foundation tables
 
@@ -258,7 +262,25 @@ These tables are implemented and applied:
 - `user_subject_roles`: subject-instance scoped staff roles
 - `user_class_roles`: class-scoped staff roles
 
-Task, marking, moderation, rubric, import/export and analytics tables remain intentionally deferred.
+Marking, moderation, rubric, import/export and analytics tables remain intentionally deferred.
+
+### Phase 4 task setup tables
+
+These tables are implemented:
+
+- `tasks`: assessment task setup records inside subject instances
+- `task_scoring_rules`: numeric scoring rule foundation for assessment tasks
+- `task_moderation_rules`: initial marker count, variance threshold and pathway settings
+
+### Phase 4 task assignment and publication tables
+
+These tables are implemented:
+
+- `task_assignments`: class-level task assignment records
+- `task_marker_assignments`: class-level Marker 1 and Marker 2 assignments
+- `student_task_records`: per-student task workflow records generated from active class enrolments
+
+Task assignment is class-based. Publishing a task creates missing student task records from active enrolments in the assigned classes and avoids duplicate task/student records.
 
 ### schools
 
@@ -296,7 +318,6 @@ More scoped roles are planned later:
 
 - subject roles
 - class roles
-- task marker assignments
 - moderation case assignments
 
 ### audit_events
@@ -366,15 +387,12 @@ Class:
 
 Planned permissions:
 
-- task marker assignments
 - marking pools
 - moderation case assignment
 - permission helpers such as `canViewSubject`, `canEditSubjectSetup`, `canSubmitMarkerScore`, `canAssignThirdMarker`, `canFinaliseTask` and `canExportSubjectData`
 
-Task marker roles are still planned, not implemented yet:
+Task marker assignments now exist for the MVP class-level Marker 1 and Marker 2 setup. Later marker and task-scope roles may include:
 
-- `marker_1`
-- `marker_2`
 - `marker_3`
 - `assessment_owner` at task scope, if needed
 
@@ -667,23 +685,22 @@ The pasted CSV import has been hardened for manual QA. It validates required hea
 
 The Stage 4 task setup foundation is now in place. The schema has `tasks`, `task_scoring_rules` and `task_moderation_rules` tables for draft numeric task setup inside subject instances. `/subjects/[subjectId]/tasks` shows the subject task list and lets system admins create draft numeric tasks. It captures optional unit/outcome links, numeric maximum scores, optional display maximum scores, optional pass thresholds, required initial marker counts, variance thresholds and moderation pathway settings.
 
-Normal users can view the task list read-only when they can view the subject. Task creation controls remain system-admin only.
+The task assignment and publication foundation is now in place. The schema has `task_assignments`, `task_marker_assignments` and `student_task_records` tables. System admins can assign draft tasks to active classes, assign Marker 1 and Marker 2 by class, preview active student counts and publish tasks. Publishing a task generates missing student task records from active class enrolments and moves the task to `marking_open`.
+
+Normal users can view the task list read-only when they can view the subject. Task creation, assignment and publishing controls remain system-admin only.
 
 ## Recommended next app pass
 
 The next implementation pass should be one of:
 
-- task setup QA and polish across admin and read-only task views
-- task-to-class assignment schema planning
+- task assignment and publication QA across admin and read-only task views
+- numeric marker score entry foundation for `marking_open` tasks
 
-Keep the next pass limited to task setup. Do not move to marking or moderation yet.
+Keep the next pass limited to task assignment polish or first-pass numeric score entry. Do not move to variance checking, moderation or finalisation yet.
 
 Explicitly out of scope until later:
 
-- class assignment to tasks
-- marker assignment
-- student task records
-- numeric marking
+- numeric score submission beyond the next focused marker-entry pass
 - variance checking
 - third-marker workflow
 - finalisation
@@ -707,10 +724,6 @@ Explicitly out of scope until later:
 - column mapping UI
 - staff/class teacher assignment
 - staff email invitations
-- task-to-class assignment
-- `student_task_records`
-- scoring rules
-- marker assignments
 - pass-forward moderation groups
 - read requirements
 - marking interface

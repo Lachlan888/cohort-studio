@@ -16,8 +16,10 @@ export default async function SubjectTasksPage({
   const { subjectId } = await params;
   const {
     canAdminManageSubjectTasks,
+    classes,
     currentProfile,
     outcomes,
+    staffProfiles,
     subject,
     tasks,
     units,
@@ -41,8 +43,10 @@ export default async function SubjectTasksPage({
       />
       <SubjectTasksPageContent
         canAdminManageSubjectTasks={canAdminManageSubjectTasks}
+        classes={classes}
         currentProfile={currentProfile}
         outcomes={outcomes}
+        staffProfiles={staffProfiles}
         subject={subject}
         tasks={tasks}
         units={units}

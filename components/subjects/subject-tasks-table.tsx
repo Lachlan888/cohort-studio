@@ -57,13 +57,14 @@ export function SubjectTasksTable({
       <div className="border-b border-slate-200 px-6 py-5">
         <h2 className="text-xl font-semibold text-slate-950">Tasks</h2>
         <p className="mt-2 text-sm leading-6 text-slate-500">
-          Draft numeric task setup records for this subject instance.
+          Numeric task setup, class assignment and publication status for this
+          subject instance.
         </p>
       </div>
 
       {tasks.length > 0 ? (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[82rem] border-collapse text-left">
+          <table className="w-full min-w-[92rem] border-collapse text-left">
             <thead className="bg-slate-50 text-xs font-semibold uppercase text-slate-500">
               <tr>
                 <th className="border-b border-slate-200 px-6 py-3">Task</th>
@@ -71,6 +72,9 @@ export function SubjectTasksTable({
                   Unit / outcome
                 </th>
                 <th className="border-b border-slate-200 px-6 py-3">Status</th>
+                <th className="border-b border-slate-200 px-6 py-3">
+                  Assignment
+                </th>
                 <th className="border-b border-slate-200 px-6 py-3">Type</th>
                 <th className="border-b border-slate-200 px-6 py-3">Score</th>
                 <th className="border-b border-slate-200 px-6 py-3">
@@ -101,6 +105,12 @@ export function SubjectTasksTable({
                   </td>
                   <td className="px-6 py-4 align-top">
                     <Badge variant="neutral">{task.status}</Badge>
+                  </td>
+                  <td className="px-6 py-4 align-top text-sm text-slate-600">
+                    <p>{task.assignedClassCount} classes</p>
+                    <p className="mt-1 text-xs text-slate-500">
+                      {task.studentTaskRecordCount} student records
+                    </p>
                   </td>
                   <td className="px-6 py-4 align-top text-sm text-slate-600">
                     {task.taskType}

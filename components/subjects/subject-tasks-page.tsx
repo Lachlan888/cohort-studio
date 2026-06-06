@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { SubjectTasksPageData } from "../../lib/subjects/get-subject-tasks-page-data";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
+import { AdminTaskAssignmentPanel } from "./admin-task-assignment-panel";
 import { AdminTaskSetupPanel } from "./admin-task-setup-panel";
 import { SubjectReadOnlyNotice } from "./subject-read-only-notice";
 import { SubjectStateCard } from "./subject-state-card";
@@ -13,8 +14,10 @@ type SubjectTasksPageProps = SubjectTasksPageData;
 
 export function SubjectTasksPage({
   canAdminManageSubjectTasks,
+  classes,
   currentProfile,
   outcomes,
+  staffProfiles,
   subject,
   tasks,
   units,
@@ -74,16 +77,24 @@ export function SubjectTasksPage({
       <SubjectReadOnlyNotice
         description={
           canAdminManageSubjectTasks
-            ? "This page displays draft task setup records from Supabase. System admins can create draft numeric tasks below."
-            : "This page displays draft task setup records from Supabase. Task creation is restricted to system admins."
+            ? "This page displays task setup records from Supabase. System admins can create draft tasks, assign classes and markers, and publish tasks for marking."
+            : "This page displays task setup records from Supabase. Task setup, assignment and publishing are restricted to system admins."
         }
       />
       {canAdminManageSubjectTasks ? (
-        <AdminTaskSetupPanel
-          outcomes={outcomes}
-          subjectId={subject.id}
-          units={units}
-        />
+        <>
+          <AdminTaskSetupPanel
+            outcomes={outcomes}
+            subjectId={subject.id}
+            units={units}
+          />
+          <AdminTaskAssignmentPanel
+            classes={classes}
+            staffProfiles={staffProfiles}
+            subjectId={subject.id}
+            tasks={tasks}
+          />
+        </>
       ) : null}
       <SubjectTasksTable
         canAdminManageSubjectTasks={canAdminManageSubjectTasks}

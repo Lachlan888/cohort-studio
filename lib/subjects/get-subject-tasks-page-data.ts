@@ -67,6 +67,30 @@ type OutcomeRow = {
   unit_id: string;
 };
 
+type ClassRow = {
+  id: string;
+  name: string;
+  school_id: string;
+  status: string;
+  subject_instance_id: string;
+};
+
+type ClassEnrolmentRow = {
+  class_id: string;
+  id: string;
+  school_id: string;
+  status: string;
+  student_id: string;
+};
+
+type ProfileRow = {
+  display_name: string;
+  email: string;
+  id: string;
+  school_id: string;
+  status: string;
+};
+
 type TaskRow = {
   created_at: string;
   description: string | null;
@@ -101,11 +125,43 @@ type TaskModerationRuleRow = {
   variance_threshold: number;
 };
 
+type TaskAssignmentRow = {
+  class_id: string;
+  id: string;
+  school_id: string;
+  status: string;
+  task_id: string;
+};
+
+type TaskMarkerAssignmentRow = {
+  class_id: string;
+  id: string;
+  marker_profile_id: string;
+  marker_role: string;
+  school_id: string;
+  status: string;
+  task_id: string;
+};
+
+type StudentTaskRecordRow = {
+  class_id: string;
+  id: string;
+  school_id: string;
+  student_id: string;
+  task_id: string;
+};
+
 type SubjectTasksTableClient = {
   from(table: "academic_years"): TableQuery<AcademicYearRow>;
+  from(table: "class_enrolments"): TableQuery<ClassEnrolmentRow>;
+  from(table: "classes"): TableQuery<ClassRow>;
   from(table: "outcomes"): TableQuery<OutcomeRow>;
+  from(table: "profiles"): TableQuery<ProfileRow>;
   from(table: "subjects"): TableQuery<SubjectRow>;
   from(table: "subject_instances"): TableQuery<SubjectInstanceRow>;
+  from(table: "student_task_records"): TableQuery<StudentTaskRecordRow>;
+  from(table: "task_assignments"): TableQuery<TaskAssignmentRow>;
+  from(table: "task_marker_assignments"): TableQuery<TaskMarkerAssignmentRow>;
   from(table: "task_moderation_rules"): TableQuery<TaskModerationRuleRow>;
   from(table: "task_scoring_rules"): TableQuery<TaskScoringRuleRow>;
   from(table: "tasks"): TableQuery<TaskRow>;
@@ -129,6 +185,8 @@ export type SubjectTasksPageOutcome = {
 };
 
 export type SubjectTasksPageTask = {
+  assignedClassCount: number;
+  classAssignments: SubjectTasksPageTaskClassAssignment[];
   createdAt: string;
   description: string | null;
   displayMaxScore: number | null;
@@ -145,6 +203,26 @@ export type SubjectTasksPageTask = {
   taskType: string;
   unitName: string | null;
   varianceThreshold: number | null;
+  studentTaskRecordCount: number;
+};
+
+export type SubjectTasksPageTaskClassAssignment = {
+  classId: string;
+  marker1ProfileId: string | null;
+  marker2ProfileId: string | null;
+};
+
+export type SubjectTasksPageClass = {
+  activeStudentCount: number;
+  id: string;
+  name: string;
+  status: string;
+};
+
+export type SubjectTasksPageStaffProfile = {
+  displayName: string;
+  email: string;
+  id: string;
 };
 
 export type SubjectTasksPageSubject = {
@@ -158,9 +236,11 @@ export type SubjectTasksPageSubject = {
 };
 
 export type SubjectTasksPageData = {
+  classes: SubjectTasksPageClass[];
   canAdminManageSubjectTasks: boolean;
   currentProfile: CurrentProfile | null;
   outcomes: SubjectTasksPageOutcome[];
+  staffProfiles: SubjectTasksPageStaffProfile[];
   subject: SubjectTasksPageSubject | null;
   tasks: SubjectTasksPageTask[];
   units: SubjectTasksPageUnit[];
@@ -185,8 +265,10 @@ export async function getSubjectTasksPageData(
   if (!currentProfile) {
     return {
       canAdminManageSubjectTasks: false,
+      classes: [],
       currentProfile: null,
       outcomes: [],
+      staffProfiles: [],
       subject: null,
       tasks: [],
       units: [],
@@ -207,8 +289,10 @@ export async function getSubjectTasksPageData(
   if (!subjectInstance) {
     return {
       canAdminManageSubjectTasks: isSystemAdmin(currentProfile),
+      classes: [],
       currentProfile,
       outcomes: [],
+      staffProfiles: [],
       subject: null,
       tasks: [],
       units: [],
@@ -221,6 +305,8 @@ export async function getSubjectTasksPageData(
     { data: roles },
     { data: units },
     { data: outcomes },
+    { data: classes },
+    { data: staffProfiles },
     { data: tasks },
   ] = await Promise.all([
     tableClient
@@ -252,6 +338,16 @@ export async function getSubjectTasksPageData(
       .eq("school_id", currentProfile.school_id)
       .eq("subject_instance_id", subjectInstance.id),
     tableClient
+      .from("classes")
+      .select("id, name, school_id, status, subject_instance_id")
+      .eq("school_id", currentProfile.school_id)
+      .eq("subject_instance_id", subjectInstance.id),
+    tableClient
+      .from("profiles")
+      .select("display_name, email, id, school_id, status")
+      .eq("school_id", currentProfile.school_id)
+      .eq("status", "active"),
+    tableClient
       .from("tasks")
       .select(
         "created_at, description, id, marking_due_date, name, outcome_id, school_id, status, subject_instance_id, task_date, task_type, unit_id",
@@ -261,7 +357,14 @@ export async function getSubjectTasksPageData(
   ]);
 
   const taskIds = (tasks ?? []).map((task) => task.id);
-  const [{ data: scoringRules }, { data: moderationRules }] =
+  const classIds = (classes ?? []).map((classRow) => classRow.id);
+  const [
+    { data: scoringRules },
+    { data: moderationRules },
+    { data: taskAssignments },
+    { data: taskMarkerAssignments },
+    { data: studentTaskRecords },
+  ] =
     taskIds.length > 0
       ? await Promise.all([
           tableClient
@@ -278,8 +381,39 @@ export async function getSubjectTasksPageData(
             )
             .eq("school_id", currentProfile.school_id)
             .in("task_id", taskIds),
+          tableClient
+            .from("task_assignments")
+            .select("class_id, id, school_id, status, task_id")
+            .eq("school_id", currentProfile.school_id)
+            .in("task_id", taskIds),
+          tableClient
+            .from("task_marker_assignments")
+            .select(
+              "class_id, id, marker_profile_id, marker_role, school_id, status, task_id",
+            )
+            .eq("school_id", currentProfile.school_id)
+            .in("task_id", taskIds),
+          tableClient
+            .from("student_task_records")
+            .select("class_id, id, school_id, student_id, task_id")
+            .eq("school_id", currentProfile.school_id)
+            .in("task_id", taskIds),
         ])
-      : [{ data: [] }, { data: [] }];
+      : [
+          { data: [] },
+          { data: [] },
+          { data: [] },
+          { data: [] },
+          { data: [] },
+        ];
+  const { data: classEnrolments } =
+    classIds.length > 0
+      ? await tableClient
+          .from("class_enrolments")
+          .select("class_id, id, school_id, status, student_id")
+          .eq("school_id", currentProfile.school_id)
+          .in("class_id", classIds)
+      : { data: [] };
 
   const subject = subjects?.[0] ?? null;
   const academicYear = academicYears?.[0] ?? null;
@@ -306,6 +440,43 @@ export async function getSubjectTasksPageData(
   const moderationRulesByTaskId = new Map(
     (moderationRules ?? []).map((rule) => [rule.task_id, rule]),
   );
+  const classEnrolmentsByClassId = (classEnrolments ?? []).reduce<
+    Map<string, ClassEnrolmentRow[]>
+  >((map, enrolment) => {
+    const currentEnrolments = map.get(enrolment.class_id) ?? [];
+
+    map.set(enrolment.class_id, [...currentEnrolments, enrolment]);
+
+    return map;
+  }, new Map<string, ClassEnrolmentRow[]>());
+  const activeTaskAssignments = (taskAssignments ?? []).filter(
+    (assignment) => assignment.status === "active",
+  );
+  const activeMarkerAssignments = (taskMarkerAssignments ?? []).filter(
+    (assignment) => assignment.status === "active",
+  );
+  const taskAssignmentsByTaskId = activeTaskAssignments.reduce<
+    Map<string, TaskAssignmentRow[]>
+  >((map, assignment) => {
+    const currentAssignments = map.get(assignment.task_id) ?? [];
+
+    map.set(assignment.task_id, [...currentAssignments, assignment]);
+
+    return map;
+  }, new Map<string, TaskAssignmentRow[]>());
+  const markerAssignmentsByTaskClassRole = new Map(
+    activeMarkerAssignments.map((assignment) => [
+      `${assignment.task_id}:${assignment.class_id}:${assignment.marker_role}`,
+      assignment,
+    ]),
+  );
+  const studentTaskRecordCountByTaskId = (studentTaskRecords ?? []).reduce<
+    Map<string, number>
+  >((map, record) => {
+    map.set(record.task_id, (map.get(record.task_id) ?? 0) + 1);
+
+    return map;
+  }, new Map<string, number>());
   const pageOutcomes = [...(outcomes ?? [])]
     .sort((first, second) => {
       const firstUnit = unitsById.get(first.unit_id);
@@ -335,8 +506,27 @@ export async function getSubjectTasksPageData(
 
   return {
     canAdminManageSubjectTasks: isSystemAdmin(currentProfile),
+    classes: [...(classes ?? [])]
+      .sort((first, second) => first.name.localeCompare(second.name))
+      .map((classRow) => ({
+        activeStudentCount: (
+          classEnrolmentsByClassId.get(classRow.id) ?? []
+        ).filter((enrolment) => enrolment.status === "active").length,
+        id: classRow.id,
+        name: classRow.name,
+        status: classRow.status,
+      })),
     currentProfile,
     outcomes: pageOutcomes,
+    staffProfiles: [...(staffProfiles ?? [])]
+      .sort((first, second) =>
+        first.display_name.localeCompare(second.display_name),
+      )
+      .map((profile) => ({
+        displayName: profile.display_name,
+        email: profile.email,
+        id: profile.id,
+      })),
     subject: {
       id: subjectInstance.id,
       role,
@@ -355,8 +545,23 @@ export async function getSubjectTasksPageData(
         const outcome = task.outcome_id
           ? outcomesById.get(task.outcome_id)
           : null;
+        const classAssignments = (
+          taskAssignmentsByTaskId.get(task.id) ?? []
+        ).map((assignment) => ({
+          classId: assignment.class_id,
+          marker1ProfileId:
+            markerAssignmentsByTaskClassRole.get(
+              `${task.id}:${assignment.class_id}:marker_1`,
+            )?.marker_profile_id ?? null,
+          marker2ProfileId:
+            markerAssignmentsByTaskClassRole.get(
+              `${task.id}:${assignment.class_id}:marker_2`,
+            )?.marker_profile_id ?? null,
+        }));
 
         return {
+          assignedClassCount: classAssignments.length,
+          classAssignments,
           createdAt: task.created_at,
           description: task.description,
           displayMaxScore: scoringRule?.display_max_score ?? null,
@@ -377,6 +582,8 @@ export async function getSubjectTasksPageData(
             (outcome ? unitsById.get(outcome.unit_id)?.name : null) ??
             null,
           varianceThreshold: moderationRule?.variance_threshold ?? null,
+          studentTaskRecordCount:
+            studentTaskRecordCountByTaskId.get(task.id) ?? 0,
         };
       }),
     units: [...(units ?? [])]

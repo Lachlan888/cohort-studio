@@ -66,8 +66,8 @@ export function AdminTaskSetupPanel({
         </h2>
         <p className="mt-2 text-sm leading-6 text-slate-700">
           Create the task setup record and its numeric scoring and moderation
-          rules. Tasks remain draft; class assignment, publishing and marking
-          are not part of this pass.
+          rules. Tasks remain draft until they are assigned to classes and
+          published below.
         </p>
       </div>
 
