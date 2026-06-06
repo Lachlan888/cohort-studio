@@ -82,16 +82,19 @@ The project currently has:
 - task assignment foundation for assigning draft tasks to active classes
 - admin-only Marker 1 and Marker 2 assignment by task class
 - admin-only task publishing that generates student task records from active class enrolments
+- numeric marking foundation for assigned markers at `/tasks/[taskId]/marking`
+- draft numeric score saving and submitted score locking for Marker 1 / Marker 2 records
 - audit events for `task_created`
 - audit events for `task_class_assigned`, `task_marker_assigned` and `task_published`
+- audit events for `marker_score_draft_saved` and `marker_score_submitted`
 - audit events for subject setup changes including class, student, enrolment, unit and outcome creation and student import commits
 - temporary `/supabase-check` route removed after verification
 
-Stage 2 database foundation, the read-only subject workspace, admin-only subject setup management, the bounded pasted CSV student import MVP, the Stage 4 task schema foundation, draft numeric task setup, class assignment, marker assignment and task publishing foundation are now implemented. Normal users continue to see read-only subject workspace pages.
+Stage 2 database foundation, the read-only subject workspace, admin-only subject setup management, the bounded pasted CSV student import MVP, the Stage 4 task schema foundation, draft numeric task setup, class assignment, marker assignment, task publishing foundation and Phase 5 numeric marking foundation are now implemented. Normal users continue to see read-only subject workspace pages unless they are assigned markers for a published task.
 
 The pasted CSV import supports the canonical `student_id,first_name,preferred_name,surname,email,class,status` template, the `student_code`, `last_name` and `class_code` aliases, simple quoted cells, blank-line trimming, extra-column warnings and duplicate student ID rejection inside an upload. It imports only into existing active classes and does not create classes automatically.
 
-The app does not yet implement invite emails, XLSX import, drag-and-drop upload, full import history, staged import tables, column mapping UI, staff/class teacher assignment, score entry, variance checking, third-marker moderation, finalisation, analytics or exports.
+The app does not yet implement invite emails, XLSX import, drag-and-drop upload, full import history, staged import tables, column mapping UI, staff/class teacher assignment, variance checking, third-marker moderation, finalisation, analytics or exports.
 
 ## MVP workflow
 
@@ -142,6 +145,7 @@ Current implemented or scaffolded routes:
 - `/subjects/[subjectId]/classes`
 - `/subjects/[subjectId]/students`
 - `/subjects/[subjectId]/tasks`
+- `/tasks/[taskId]/marking`
 - `/tasks`
 - `/moderation`
 - `/analysis`
@@ -159,6 +163,7 @@ Real routes:
 - `/subjects/[subjectId]/classes`
 - `/subjects/[subjectId]/students`
 - `/subjects/[subjectId]/tasks`
+- `/tasks/[taskId]/marking`
 
 Static/scaffolded routes:
 
@@ -211,6 +216,36 @@ These routes should be added incrementally, not all at once.
 - Avoid giant page files.
 - Avoid duplicate versions of the same table/card/form.
 - Prefer reusable domain components over one mega-component.
+
+## Supabase migration sync workflow
+
+The repo is linked to the hosted Supabase project through the Supabase CLI. Use this workflow to keep local migrations and the hosted project in sync.
+
+```bash
+npx supabase login
+npx supabase link
+cat supabase/.temp/project-ref
+npx supabase migration list
+npx supabase db push
+```
+
+- `npx supabase login` is used when the CLI is not authenticated.
+- `npx supabase link` is used only when the repo is not already linked to the hosted Supabase project.
+- `cat supabase/.temp/project-ref` confirms which hosted project this repo is linked to.
+- `npx supabase migration list` checks local vs remote migration state.
+- `npx supabase db push` is the normal workflow once the repo is linked and migration history is synced. It applies pending local migrations to the linked hosted project.
+- If `db push` fails with “relation already exists”, stop and do not rerun blindly.
+- A “relation already exists” error usually means schema objects already exist but Supabase migration history is out of sync.
+- In that case, inspect the remote schema first, then use the repair workflow only for migrations whose schema objects are already present:
+
+```bash
+npx supabase migration repair --status applied ...
+```
+
+- Do not rewrite committed migrations to add `if not exists` just to bypass migration-history mismatch.
+- Do not drop or recreate tables to fix migration history.
+- Do not commit `supabase/.temp/`.
+- After migration sync, run `npm run build`, `npm run dev`, and test the affected route.
 
 ## Current architecture rules
 

@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { SubjectTasksPageTask } from "../../lib/subjects/get-subject-tasks-page-data";
 import { Badge } from "../ui/badge";
 import { Card } from "../ui/card";
@@ -82,6 +83,7 @@ export function SubjectTasksTable({
                 </th>
                 <th className="border-b border-slate-200 px-6 py-3">Dates</th>
                 <th className="border-b border-slate-200 px-6 py-3">Created</th>
+                <th className="border-b border-slate-200 px-6 py-3">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-200">
@@ -146,6 +148,18 @@ export function SubjectTasksTable({
                   </td>
                   <td className="px-6 py-4 align-top text-sm text-slate-600">
                     {formatDateTime(task.createdAt)}
+                  </td>
+                  <td className="px-6 py-4 align-top text-sm">
+                    {task.canOpenMarking ? (
+                      <Link
+                        className="font-medium text-teal-800 hover:text-teal-950"
+                        href={`/tasks/${task.id}/marking`}
+                      >
+                        Mark
+                      </Link>
+                    ) : (
+                      <span className="text-slate-400">Not available</span>
+                    )}
                   </td>
                 </tr>
               ))}

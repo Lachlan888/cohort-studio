@@ -186,6 +186,7 @@ export type SubjectTasksPageOutcome = {
 
 export type SubjectTasksPageTask = {
   assignedClassCount: number;
+  canOpenMarking: boolean;
   classAssignments: SubjectTasksPageTaskClassAssignment[];
   createdAt: string;
   description: string | null;
@@ -561,6 +562,14 @@ export async function getSubjectTasksPageData(
 
         return {
           assignedClassCount: classAssignments.length,
+          canOpenMarking:
+            task.status === "marking_open" &&
+            (isSystemAdmin(currentProfile) ||
+              activeMarkerAssignments.some(
+                (assignment) =>
+                  assignment.task_id === task.id &&
+                  assignment.marker_profile_id === currentProfile.id,
+              )),
           classAssignments,
           createdAt: task.created_at,
           description: task.description,

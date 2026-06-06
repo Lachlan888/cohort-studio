@@ -50,6 +50,8 @@ type SubjectRow = {
 
 type QueryError = {
   code?: string;
+  details?: string;
+  hint?: string;
   message: string;
 };
 
@@ -99,6 +101,19 @@ export type AdminCreateSubjectInstanceFormState = {
   createdSubjectId: string | null;
   error: string | null;
   success: string | null;
+  values: AdminCreateSubjectInstanceFormValues;
+};
+
+export type AdminCreateSubjectInstanceFormValues = {
+  academicYearId: string;
+  newAcademicYear: string;
+  newAcademicYearStatus: string;
+  newSubjectName: string;
+  newSubjectStatus: string;
+  newSubjectType: string;
+  subjectId: string;
+  subjectInstanceName: string;
+  subjectInstanceStatus: string;
 };
 
 const allowedAcademicYearStatuses = new Set<string>(["active", "archived"]);
@@ -139,6 +154,72 @@ function isUniqueViolation(error: QueryError | null) {
   return error?.code === "23505";
 }
 
+const initialCreateSubjectFormValues: AdminCreateSubjectInstanceFormValues = {
+  academicYearId: "",
+  newAcademicYear: "",
+  newAcademicYearStatus: "active",
+  newSubjectName: "",
+  newSubjectStatus: "active",
+  newSubjectType: "",
+  subjectId: "",
+  subjectInstanceName: "",
+  subjectInstanceStatus: "draft",
+};
+
+function createErrorState(
+  error: string,
+  values: AdminCreateSubjectInstanceFormValues = initialCreateSubjectFormValues,
+): AdminCreateSubjectInstanceFormState {
+  return {
+    createdSubjectId: null,
+    error,
+    success: null,
+    values,
+  };
+}
+
+function getSubmittedFormValues(
+  formData: FormData,
+): AdminCreateSubjectInstanceFormValues {
+  return {
+    academicYearId: getTextValue(formData, "academic_year_id"),
+    newAcademicYear: getTextValue(formData, "new_academic_year"),
+    newAcademicYearStatus:
+      getTextValue(formData, "new_academic_year_status") ||
+      initialCreateSubjectFormValues.newAcademicYearStatus,
+    newSubjectName: getTextValue(formData, "new_subject_name"),
+    newSubjectStatus:
+      getTextValue(formData, "new_subject_status") ||
+      initialCreateSubjectFormValues.newSubjectStatus,
+    newSubjectType: getTextValue(formData, "new_subject_type"),
+    subjectId: getTextValue(formData, "subject_id"),
+    subjectInstanceName: getTextValue(formData, "subject_instance_name"),
+    subjectInstanceStatus:
+      getTextValue(formData, "subject_instance_status") ||
+      initialCreateSubjectFormValues.subjectInstanceStatus,
+  };
+}
+
+function formatQueryError(error: QueryError | null, fallback: string) {
+  if (!error) {
+    return fallback;
+  }
+
+  return [error.message, error.details, error.hint].filter(Boolean).join(" ");
+}
+
+function logSubjectCreateError(
+  context: string,
+  error: QueryError | null,
+  metadata?: Record<string, string | number | null>,
+) {
+  console.error("adminCreateSubjectInstance failed", {
+    context,
+    error,
+    metadata,
+  });
+}
+
 async function findOrCreateAcademicYear({
   schoolId,
   status,
@@ -150,12 +231,17 @@ async function findOrCreateAcademicYear({
   tableClient: CreateSubjectActionClient;
   year: number;
 }) {
-  const { data: existingAcademicYear } = await tableClient
-    .from("academic_years")
-    .select("id, school_id, year")
-    .eq("school_id", schoolId)
-    .eq("year", String(year))
-    .maybeSingle();
+  const { data: existingAcademicYear, error: existingAcademicYearError } =
+    await tableClient
+      .from("academic_years")
+      .select("id, school_id, year")
+      .eq("school_id", schoolId)
+      .eq("year", String(year))
+      .maybeSingle();
+
+  if (existingAcademicYearError) {
+    return { academicYear: null, error: existingAcademicYearError };
+  }
 
   if (existingAcademicYear) {
     return { academicYear: existingAcademicYear, error: null };
@@ -170,6 +256,16 @@ async function findOrCreateAcademicYear({
     })
     .select("id, school_id, year")
     .single();
+
+  if (!error && !createdAcademicYear) {
+    return {
+      academicYear: null,
+      error: {
+        message:
+          "Academic year insert returned no row. Check RLS select policy for academic_years.",
+      },
+    };
+  }
 
   return { academicYear: createdAcademicYear, error };
 }
@@ -187,10 +283,16 @@ async function findOrCreateSubject({
   subjectType: string | null;
   tableClient: CreateSubjectActionClient;
 }) {
-  const { data: existingSubjects } = await tableClient
-    .from("subjects")
-    .select("id, name, school_id, subject_type")
-    .eq("school_id", schoolId);
+  const { data: existingSubjects, error: existingSubjectsError } =
+    await tableClient
+      .from("subjects")
+      .select("id, name, school_id, subject_type")
+      .eq("school_id", schoolId);
+
+  if (existingSubjectsError) {
+    return { error: existingSubjectsError, subject: null };
+  }
+
   const existingSubject =
     existingSubjects?.find(
       (subject) =>
@@ -212,6 +314,16 @@ async function findOrCreateSubject({
     .select("id, name, school_id, subject_type")
     .single();
 
+  if (!error && !createdSubject) {
+    return {
+      error: {
+        message:
+          "Subject insert returned no row. Check RLS select policy for subjects.",
+      },
+      subject: null,
+    };
+  }
+
   return { error, subject: createdSubject };
 }
 
@@ -219,212 +331,276 @@ export async function adminCreateSubjectInstance(
   _previousState: AdminCreateSubjectInstanceFormState,
   formData: FormData,
 ): Promise<AdminCreateSubjectInstanceFormState> {
-  const currentProfile = await getCurrentProfile();
+  const submittedValues = getSubmittedFormValues(formData);
 
-  if (!currentProfile || !isSystemAdmin(currentProfile)) {
-    return {
-      createdSubjectId: null,
-      error: "You do not have permission to create subject instances.",
-      success: null,
-    };
-  }
+  try {
+    const currentProfile = await getCurrentProfile();
 
-  const existingAcademicYearId = getTextValue(formData, "academic_year_id");
-  const newAcademicYear = parseYear(
-    getTextValue(formData, "new_academic_year"),
-  );
-  const newAcademicYearStatus = getTextValue(
-    formData,
-    "new_academic_year_status",
-  );
-  const existingSubjectId = getTextValue(formData, "subject_id");
-  const newSubjectName = getTextValue(formData, "new_subject_name");
-  const newSubjectType = getTextValue(formData, "new_subject_type") || null;
-  const newSubjectStatus = getTextValue(formData, "new_subject_status");
-  const subjectInstanceName = getTextValue(formData, "subject_instance_name");
-  const subjectInstanceStatus = getTextValue(
-    formData,
-    "subject_instance_status",
-  );
-
-  if (!existingAcademicYearId && !newAcademicYear) {
-    return {
-      createdSubjectId: null,
-      error: "Choose an academic year or enter a new four-digit year.",
-      success: null,
-    };
-  }
-
-  if (
-    newAcademicYear &&
-    (!newAcademicYearStatus || !isAcademicYearStatus(newAcademicYearStatus))
-  ) {
-    return {
-      createdSubjectId: null,
-      error: "Choose an allowed academic year status.",
-      success: null,
-    };
-  }
-
-  if (!existingSubjectId && !newSubjectName) {
-    return {
-      createdSubjectId: null,
-      error: "Choose a subject or enter a new subject name.",
-      success: null,
-    };
-  }
-
-  if (newSubjectName && !isSubjectStatus(newSubjectStatus)) {
-    return {
-      createdSubjectId: null,
-      error: "Choose an allowed subject status.",
-      success: null,
-    };
-  }
-
-  if (!isSubjectInstanceStatus(subjectInstanceStatus)) {
-    return {
-      createdSubjectId: null,
-      error: "Choose draft or active status for the subject instance.",
-      success: null,
-    };
-  }
-
-  const supabase = await createClient();
-  const tableClient = supabase as unknown as CreateSubjectActionClient;
-  let academicYear: AcademicYearRow | null = null;
-  let subject: SubjectRow | null = null;
-
-  if (existingAcademicYearId) {
-    const { data } = await tableClient
-      .from("academic_years")
-      .select("id, school_id, year")
-      .eq("school_id", currentProfile.school_id)
-      .eq("id", existingAcademicYearId)
-      .maybeSingle();
-
-    academicYear = data;
-  } else if (newAcademicYear && isAcademicYearStatus(newAcademicYearStatus)) {
-    const { academicYear: createdOrExistingYear, error } =
-      await findOrCreateAcademicYear({
-        schoolId: currentProfile.school_id,
-        status: newAcademicYearStatus,
-        tableClient,
-        year: newAcademicYear,
-      });
-
-    if (error && !isUniqueViolation(error)) {
-      return {
-        createdSubjectId: null,
-        error: "Could not create the academic year. Please try again.",
-        success: null,
-      };
+    if (!currentProfile || !isSystemAdmin(currentProfile)) {
+      return createErrorState(
+        "You do not have permission to create subject instances.",
+      );
     }
 
-    academicYear = createdOrExistingYear;
-  }
+    const values = submittedValues;
+    const existingAcademicYearId = values.academicYearId;
+    const newAcademicYear = parseYear(values.newAcademicYear);
+    const newAcademicYearStatus = values.newAcademicYearStatus;
+    const existingSubjectId = values.subjectId;
+    const newSubjectName = values.newSubjectName;
+    const newSubjectType = values.newSubjectType || null;
+    const newSubjectStatus = values.newSubjectStatus;
+    const subjectInstanceName = values.subjectInstanceName;
+    const subjectInstanceStatus = values.subjectInstanceStatus;
 
-  if (!academicYear) {
-    return {
-      createdSubjectId: null,
-      error: "Could not find or create that academic year.",
-      success: null,
-    };
-  }
-
-  if (existingSubjectId) {
-    const { data } = await tableClient
-      .from("subjects")
-      .select("id, name, school_id, subject_type")
-      .eq("school_id", currentProfile.school_id)
-      .eq("id", existingSubjectId)
-      .maybeSingle();
-
-    subject = data;
-  } else if (newSubjectName && isSubjectStatus(newSubjectStatus)) {
-    const { error, subject: createdOrExistingSubject } =
-      await findOrCreateSubject({
-        name: newSubjectName,
-        schoolId: currentProfile.school_id,
-        status: newSubjectStatus,
-        subjectType: newSubjectType,
-        tableClient,
-      });
-
-    if (error && !isUniqueViolation(error)) {
-      return {
-        createdSubjectId: null,
-        error: "Could not create the subject catalogue row. Please try again.",
-        success: null,
-      };
+    if (!existingAcademicYearId && !newAcademicYear) {
+      return createErrorState(
+        "Choose an academic year or enter a new four-digit year.",
+        values,
+      );
     }
 
-    subject = createdOrExistingSubject;
-  }
+    if (
+      newAcademicYear &&
+      (!newAcademicYearStatus || !isAcademicYearStatus(newAcademicYearStatus))
+    ) {
+      return createErrorState(
+        "Choose an allowed academic year status.",
+        values,
+      );
+    }
 
-  if (!subject) {
-    return {
-      createdSubjectId: null,
-      error: "Could not find or create that subject catalogue row.",
-      success: null,
-    };
-  }
+    if (!existingSubjectId && !newSubjectName) {
+      return createErrorState(
+        "Choose a subject or enter a new subject name.",
+        values,
+      );
+    }
 
-  const instanceName =
-    subjectInstanceName || `${subject.name} ${academicYear.year}`;
-  const { data: existingSubjectInstance } = await tableClient
-    .from("subject_instances")
-    .select("id")
-    .eq("school_id", currentProfile.school_id)
-    .eq("subject_id", subject.id)
-    .eq("academic_year_id", academicYear.id)
-    .maybeSingle();
+    if (newSubjectName && !isSubjectStatus(newSubjectStatus)) {
+      return createErrorState("Choose an allowed subject status.", values);
+    }
 
-  if (existingSubjectInstance) {
-    return {
-      createdSubjectId: existingSubjectInstance.id,
-      error: null,
-      success: "That subject instance already exists.",
-    };
-  }
+    if (!isSubjectInstanceStatus(subjectInstanceStatus)) {
+      return createErrorState(
+        "Choose draft or active status for the subject instance.",
+        values,
+      );
+    }
 
-  const { data: createdSubjectInstance, error: subjectInstanceError } =
-    await tableClient
+    const supabase = await createClient();
+    const tableClient = supabase as unknown as CreateSubjectActionClient;
+    let academicYear: AcademicYearRow | null = null;
+    let subject: SubjectRow | null = null;
+
+    if (existingAcademicYearId) {
+      const { data, error } = await tableClient
+        .from("academic_years")
+        .select("id, school_id, year")
+        .eq("school_id", currentProfile.school_id)
+        .eq("id", existingAcademicYearId)
+        .maybeSingle();
+
+      if (error) {
+        logSubjectCreateError("load existing academic year", error, {
+          academic_year_id: existingAcademicYearId,
+          school_id: currentProfile.school_id,
+        });
+
+        return createErrorState(
+          formatQueryError(error, "Could not load that academic year."),
+          values,
+        );
+      }
+
+      academicYear = data;
+    } else if (newAcademicYear && isAcademicYearStatus(newAcademicYearStatus)) {
+      const { academicYear: createdOrExistingYear, error } =
+        await findOrCreateAcademicYear({
+          schoolId: currentProfile.school_id,
+          status: newAcademicYearStatus,
+          tableClient,
+          year: newAcademicYear,
+        });
+
+      if (error && !isUniqueViolation(error)) {
+        logSubjectCreateError("find or create academic year", error, {
+          school_id: currentProfile.school_id,
+          year: newAcademicYear,
+        });
+
+        return createErrorState(
+          formatQueryError(error, "Could not create the academic year."),
+          values,
+        );
+      }
+
+      academicYear = createdOrExistingYear;
+    }
+
+    if (!academicYear) {
+      return createErrorState(
+        "Could not find or create that academic year.",
+        values,
+      );
+    }
+
+    if (existingSubjectId) {
+      const { data, error } = await tableClient
+        .from("subjects")
+        .select("id, name, school_id, subject_type")
+        .eq("school_id", currentProfile.school_id)
+        .eq("id", existingSubjectId)
+        .maybeSingle();
+
+      if (error) {
+        logSubjectCreateError("load existing subject", error, {
+          school_id: currentProfile.school_id,
+          subject_id: existingSubjectId,
+        });
+
+        return createErrorState(
+          formatQueryError(error, "Could not load that subject."),
+          values,
+        );
+      }
+
+      subject = data;
+    } else if (newSubjectName && isSubjectStatus(newSubjectStatus)) {
+      const { error, subject: createdOrExistingSubject } =
+        await findOrCreateSubject({
+          name: newSubjectName,
+          schoolId: currentProfile.school_id,
+          status: newSubjectStatus,
+          subjectType: newSubjectType,
+          tableClient,
+        });
+
+      if (error && !isUniqueViolation(error)) {
+        logSubjectCreateError("find or create subject", error, {
+          school_id: currentProfile.school_id,
+          subject_name: newSubjectName,
+        });
+
+        return createErrorState(
+          formatQueryError(
+            error,
+            "Could not create the subject catalogue row.",
+          ),
+          values,
+        );
+      }
+
+      subject = createdOrExistingSubject;
+    }
+
+    if (!subject) {
+      return createErrorState(
+        "Could not find or create that subject catalogue row.",
+        values,
+      );
+    }
+
+    const instanceName =
+      subjectInstanceName || `${subject.name} ${academicYear.year}`;
+    const {
+      data: existingSubjectInstance,
+      error: existingSubjectInstanceError,
+    } = await tableClient
       .from("subject_instances")
-      .insert({
-        academic_year_id: academicYear.id,
-        created_by: currentProfile.id,
-        name: instanceName,
-        school_id: currentProfile.school_id,
-        status: subjectInstanceStatus,
-        subject_id: subject.id,
-      })
       .select("id")
-      .single();
+      .eq("school_id", currentProfile.school_id)
+      .eq("subject_id", subject.id)
+      .eq("academic_year_id", academicYear.id)
+      .maybeSingle();
 
-  if (subjectInstanceError || !createdSubjectInstance) {
-    if (isUniqueViolation(subjectInstanceError)) {
+    if (existingSubjectInstanceError) {
+      logSubjectCreateError(
+        "load existing subject instance",
+        existingSubjectInstanceError,
+        {
+          academic_year_id: academicYear.id,
+          school_id: currentProfile.school_id,
+          subject_id: subject.id,
+        },
+      );
+
+      return createErrorState(
+        formatQueryError(
+          existingSubjectInstanceError,
+          "Could not check existing subject instances.",
+        ),
+        values,
+      );
+    }
+
+    if (existingSubjectInstance) {
       return {
-        createdSubjectId: null,
-        error:
-          "A subject instance already exists for that subject and academic year.",
-        success: null,
+        createdSubjectId: existingSubjectInstance.id,
+        error: null,
+        success: "That subject instance already exists.",
+        values: initialCreateSubjectFormValues,
       };
     }
 
+    const { data: createdSubjectInstance, error: subjectInstanceError } =
+      await tableClient
+        .from("subject_instances")
+        .insert({
+          academic_year_id: academicYear.id,
+          created_by: currentProfile.id,
+          name: instanceName,
+          school_id: currentProfile.school_id,
+          status: subjectInstanceStatus,
+          subject_id: subject.id,
+        })
+        .select("id")
+        .single();
+
+    if (subjectInstanceError || !createdSubjectInstance) {
+      if (isUniqueViolation(subjectInstanceError)) {
+        return createErrorState(
+          "A subject instance already exists for that subject and academic year.",
+          values,
+        );
+      }
+
+      const fallback = !createdSubjectInstance
+        ? "Subject instance insert returned no row. Check RLS select policy for subject_instances."
+        : "Could not create the subject instance.";
+
+      logSubjectCreateError("create subject instance", subjectInstanceError, {
+        academic_year_id: academicYear.id,
+        school_id: currentProfile.school_id,
+        subject_id: subject.id,
+      });
+
+      return createErrorState(
+        formatQueryError(subjectInstanceError, fallback),
+        values,
+      );
+    }
+
+    revalidatePath("/subjects");
+    revalidatePath(`/subjects/${createdSubjectInstance.id}`);
+
     return {
-      createdSubjectId: null,
-      error: "Could not create the subject instance. Please try again.",
-      success: null,
+      createdSubjectId: createdSubjectInstance.id,
+      error: null,
+      success: "Subject instance created.",
+      values: initialCreateSubjectFormValues,
     };
+  } catch (error) {
+    console.error("adminCreateSubjectInstance failed", {
+      context: "unexpected exception",
+      error,
+    });
+
+    return createErrorState(
+      error instanceof Error
+        ? error.message
+        : "Unexpected error while creating the subject instance.",
+      submittedValues,
+    );
   }
-
-  revalidatePath("/subjects");
-  revalidatePath(`/subjects/${createdSubjectInstance.id}`);
-
-  return {
-    createdSubjectId: createdSubjectInstance.id,
-    error: null,
-    success: "Subject instance created.",
-  };
 }

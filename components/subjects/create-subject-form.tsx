@@ -22,6 +22,17 @@ const initialState: AdminCreateSubjectInstanceFormState = {
   createdSubjectId: null,
   error: null,
   success: null,
+  values: {
+    academicYearId: "",
+    newAcademicYear: "",
+    newAcademicYearStatus: "active",
+    newSubjectName: "",
+    newSubjectStatus: "active",
+    newSubjectType: "",
+    subjectId: "",
+    subjectInstanceName: "",
+    subjectInstanceStatus: "draft",
+  },
 };
 
 const fieldClasses =
@@ -43,6 +54,10 @@ export function AdminCreateSubjectForm({
     }
   }, [state.success]);
 
+  const formKey = state.success
+    ? "create-subject-success"
+    : Object.values(state.values).join("|");
+
   return (
     <Card as="section">
       <div className="max-w-3xl">
@@ -55,7 +70,12 @@ export function AdminCreateSubjectForm({
         </p>
       </div>
 
-      <form action={formAction} className="mt-6 grid gap-6" ref={formRef}>
+      <form
+        action={formAction}
+        className="mt-6 grid gap-6"
+        key={formKey}
+        ref={formRef}
+      >
         <fieldset className="grid gap-5">
           <legend className="text-base font-semibold text-slate-950">
             Academic year
@@ -70,6 +90,7 @@ export function AdminCreateSubjectForm({
             </label>
             <select
               className={fieldClasses}
+              defaultValue={state.values.academicYearId}
               id="academic_year_id"
               name="academic_year_id"
             >
@@ -92,6 +113,7 @@ export function AdminCreateSubjectForm({
               </label>
               <input
                 className={fieldClasses}
+                defaultValue={state.values.newAcademicYear}
                 id="new_academic_year"
                 inputMode="numeric"
                 maxLength={4}
@@ -110,7 +132,7 @@ export function AdminCreateSubjectForm({
               </label>
               <select
                 className={fieldClasses}
-                defaultValue="active"
+                defaultValue={state.values.newAcademicYearStatus}
                 id="new_academic_year_status"
                 name="new_academic_year_status"
               >
@@ -133,7 +155,12 @@ export function AdminCreateSubjectForm({
             >
               Existing subject
             </label>
-            <select className={fieldClasses} id="subject_id" name="subject_id">
+            <select
+              className={fieldClasses}
+              defaultValue={state.values.subjectId}
+              id="subject_id"
+              name="subject_id"
+            >
               <option value="">Create a new subject</option>
               {subjects.map((subject) => (
                 <option key={subject.id} value={subject.id}>
@@ -154,6 +181,7 @@ export function AdminCreateSubjectForm({
               </label>
               <input
                 className={fieldClasses}
+                defaultValue={state.values.newSubjectName}
                 id="new_subject_name"
                 name="new_subject_name"
                 placeholder="English"
@@ -170,6 +198,7 @@ export function AdminCreateSubjectForm({
               </label>
               <input
                 className={fieldClasses}
+                defaultValue={state.values.newSubjectType}
                 id="new_subject_type"
                 name="new_subject_type"
                 placeholder="VCE"
@@ -186,7 +215,7 @@ export function AdminCreateSubjectForm({
               </label>
               <select
                 className={fieldClasses}
-                defaultValue="active"
+                defaultValue={state.values.newSubjectStatus}
                 id="new_subject_status"
                 name="new_subject_status"
               >
@@ -212,6 +241,7 @@ export function AdminCreateSubjectForm({
               </label>
               <input
                 className={fieldClasses}
+                defaultValue={state.values.subjectInstanceName}
                 id="subject_instance_name"
                 name="subject_instance_name"
                 placeholder="English 2026"
@@ -228,7 +258,7 @@ export function AdminCreateSubjectForm({
               </label>
               <select
                 className={fieldClasses}
-                defaultValue="draft"
+                defaultValue={state.values.subjectInstanceStatus}
                 id="subject_instance_status"
                 name="subject_instance_status"
               >
